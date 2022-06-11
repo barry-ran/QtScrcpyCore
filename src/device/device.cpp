@@ -168,6 +168,7 @@ void Device::initSignals()
 
     if (m_server) {
         connect(m_server, &Server::serverStarted, this, [this](bool success, const QString &deviceName, const QSize &size) {
+            m_serverStartSuccess = success;
             emit deviceConnected(success, m_params.serial, deviceName, size);
             if (success) {
                 double diff = m_startTimeCount.elapsed() / 1000.0;
@@ -258,7 +259,7 @@ void Device::initSignals()
 
 bool Device::connectDevice()
 {
-    if (!m_server) {
+    if (!m_server || m_serverStartSuccess) {
         return false;
     }
 
@@ -319,7 +320,10 @@ void Device::disconnectDevice()
         m_recorder->close();
     }
 
-    emit deviceDisconnected(m_params.serial);
+    if (m_serverStartSuccess) {
+        emit deviceDisconnected(m_params.serial);
+    }
+    m_serverStartSuccess = false;
 }
 
 void Device::postGoBack()
