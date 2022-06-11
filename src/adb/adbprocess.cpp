@@ -20,6 +20,9 @@ AdbProcess::AdbProcess(QObject *parent)
 
 AdbProcess::~AdbProcess()
 {
+    if (m_adbImpl->isRuning()) {
+        m_adbImpl->kill();
+    }
     delete m_adbImpl;
 }
 
