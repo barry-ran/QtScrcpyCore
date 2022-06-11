@@ -82,6 +82,7 @@ private:
 private:
     // server relevant
     QPointer<Server> m_server;
+    bool m_serverStartSuccess = false;
     QPointer<Decoder> m_decoder;
     QPointer<Controller> m_controller;
     QPointer<FileHandler> m_fileHandler;
