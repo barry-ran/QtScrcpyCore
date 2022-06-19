@@ -20,6 +20,8 @@ Makefile*
 *.qm
 *.prl
 
+*.DS_Store
+
 # Qt unit tests
 target_wrapper.*
 
