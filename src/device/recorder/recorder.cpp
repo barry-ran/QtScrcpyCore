@@ -13,13 +13,10 @@ Recorder::~Recorder() {}
 
 AVPacket *Recorder::packetNew(const AVPacket *packet)
 {
-    AVPacket *rec = new AVPacket;
+    AVPacket *rec = av_packet_alloc();
     if (!rec) {
         return Q_NULLPTR;
     }
-
-    // av_packet_ref() does not initialize all fields in old FFmpeg versions
-    av_init_packet(rec);
 
     if (av_packet_ref(rec, packet)) {
         delete rec;
@@ -54,7 +51,7 @@ void Recorder::setFormat(Recorder::RecorderFormat format)
 bool Recorder::open()
 {
     // codec
-    AVCodec* inputCodec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    const AVCodec* inputCodec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!inputCodec) {
         qCritical("H.264 decoder not found");
         return false;

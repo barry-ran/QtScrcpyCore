@@ -215,6 +215,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         avcodec
         avutil
         swscale
+        z
     )
 
+    add_custom_command(TARGET ${QSC_PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/adb/linux/adb" "${QSC_DEPLOY_PATH}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/scrcpy-server" "${QSC_DEPLOY_PATH}"
+    )
 endif()

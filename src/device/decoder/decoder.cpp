@@ -22,8 +22,7 @@ Decoder::~Decoder() {
 bool Decoder::open()
 {
     // codec
-    AVCodec *codec = Q_NULLPTR;
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!codec) {
         qCritical("H.264 decoder not found");
         return false;
