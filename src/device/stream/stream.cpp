@@ -102,12 +102,11 @@ void Stream::stopDecode()
 
 void Stream::run()
 {
-    AVCodec *codec = Q_NULLPTR;
     m_codecCtx = Q_NULLPTR;
     m_parser = Q_NULLPTR;
 
     // codec
-    codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!codec) {
         qCritical("H.264 decoder not found");
         goto runQuit;
