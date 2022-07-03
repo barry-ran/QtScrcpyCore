@@ -112,9 +112,11 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
         // 处理普通按键
         case KeyMap::KMT_CLICK:
             processKeyClick(node.data.click.keyNode.pos, false, node.data.click.switchMap, from);
+            processAndroidKey(node.data.click.keyNode.androidKey, from);
             return;
         case KeyMap::KMT_CLICK_TWICE:
             processKeyClick(node.data.clickTwice.keyNode.pos, true, false, from);
+            processAndroidKey(node.data.clickTwice.keyNode.androidKey, from);
             return;
         case KeyMap::KMT_CLICK_MULTI:
             processKeyClickMulti(node.data.clickMulti.keyNode.delayClickNodes, node.data.clickMulti.keyNode.delayClickNodesCount, from);
