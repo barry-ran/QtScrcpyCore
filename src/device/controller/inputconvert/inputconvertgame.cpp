@@ -122,6 +122,8 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
         case KeyMap::KMT_DRAG:
             processKeyDrag(node.data.drag.keyNode.pos, node.data.drag.keyNode.extendPos, from);
             return;
+        case KeyMap::KMT_ANDROID_KEY:
+            processAndroidKey(node.data.androidKey.keyNode.androidKey, from);
         default:
             break;
         }
@@ -193,6 +195,16 @@ void InputConvertGame::sendTouchEvent(int id, QPointF pos, AndroidMotioneventAct
                                       static_cast<AndroidMotioneventButtons>(0),
                                       QRect(absolutePos, m_frameSize),
                                       AMOTION_EVENT_ACTION_DOWN == action? 1.0f : 0.0f);
+    sendControlMsg(controlMsg);
+}
+
+void InputConvertGame::sendKeyEvent(AndroidKeyeventAction action, AndroidKeycode keyCode) {
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_INJECT_KEYCODE);
+    if (!controlMsg) {
+        return;
+    }
+
+    controlMsg->setInjectKeycodeMsgData(action, keyCode, 0, AMETA_NONE);
     sendControlMsg(controlMsg);
 }
 
@@ -482,6 +494,27 @@ void InputConvertGame::processKeyDrag(const QPointF &startPos, QPointF endPos, c
                       m_dragDelayData.queueTimer);
         m_dragDelayData.timer->start();
     }
+}
+
+void InputConvertGame::processAndroidKey(AndroidKeycode androidKey, const QKeyEvent *from)
+{
+    if (AKEYCODE_UNKNOWN == androidKey) {
+        return;
+    }
+
+    AndroidKeyeventAction action;
+    switch (from->type()) {
+    case QEvent::KeyPress:
+        action = AKEY_EVENT_ACTION_DOWN;
+        break;
+    case QEvent::KeyRelease:
+        action = AKEY_EVENT_ACTION_UP;
+        break;
+    default:
+        return;
+    }
+
+    sendKeyEvent(action, androidKey);
 }
 
 // -------- mouse event --------
