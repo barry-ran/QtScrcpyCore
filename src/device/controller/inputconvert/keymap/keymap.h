@@ -9,6 +9,8 @@
 #include <QRectF>
 #include <QVector>
 
+#include "keycodes.h"
+
 #define MAX_DELAY_CLICK_NODES 50
 
 class KeyMap : public QObject
@@ -23,7 +25,8 @@ public:
         KMT_CLICK_MULTI,
         KMT_STEER_WHEEL,
         KMT_DRAG,
-        KMT_MOUSE_MOVE
+        KMT_MOUSE_MOVE,
+        KMT_ANDROID_KEY
     };
     Q_ENUM(KeyMapType)
 
@@ -50,14 +53,16 @@ public:
         double extendOffset = 0.0;                             // for steerWheel
         DelayClickNode delayClickNodes[MAX_DELAY_CLICK_NODES]; // for multi clicks
         int delayClickNodesCount = 0;
+        AndroidKeycode androidKey = AKEYCODE_UNKNOWN;          // for key press
 
         KeyNode(
             ActionType type = AT_INVALID,
             int key = Qt::Key_unknown,
             QPointF pos = QPointF(0, 0),
             QPointF extendPos = QPointF(0, 0),
-            double extendOffset = 0.0)
-            : type(type), key(key), pos(pos), extendPos(extendPos), extendOffset(extendOffset)
+            double extendOffset = 0.0,
+            AndroidKeycode androidKey = AKEYCODE_UNKNOWN)
+            : type(type), key(key), pos(pos), extendPos(extendPos), extendOffset(extendOffset), androidKey(androidKey)
         {
         }
     };
@@ -95,6 +100,10 @@ public:
                 QPointF speedRatio = { 1.0, 1.0 };
                 KeyNode smallEyes;
             } mouseMove;
+            struct
+            {
+                KeyNode keyNode;
+            } androidKey;
             DATA() {}
             ~DATA() {}
         } data;
@@ -135,6 +144,7 @@ private:
     bool checkForClickTwice(const QJsonObject &node);
     bool checkForSteerWhell(const QJsonObject &node);
     bool checkForDrag(const QJsonObject &node);
+    bool checkForAndroidKey(const QJsonObject &node);
 
     // get keymap from json object
     QString getItemString(const QJsonObject &node, const QString &name);

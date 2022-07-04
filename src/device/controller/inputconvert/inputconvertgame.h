@@ -28,6 +28,7 @@ protected:
     void sendTouchMoveEvent(int id, QPointF pos);
     void sendTouchUpEvent(int id, QPointF pos);
     void sendTouchEvent(int id, QPointF pos, AndroidMotioneventAction action);
+    void sendKeyEvent(AndroidKeyeventAction action, AndroidKeycode keyCode);
     QPointF calcFrameAbsolutePos(QPointF relativePos);
     QPointF calcScreenAbsolutePos(QPointF relativePos);
 
@@ -47,6 +48,9 @@ protected:
 
     // drag
     void processKeyDrag(const QPointF &startPos, QPointF endPos, const QKeyEvent *from);
+
+    // android key
+    void processAndroidKey(AndroidKeycode androidKey, const QKeyEvent *from);
 
     // mouse
     bool processMouseClick(const QMouseEvent *from);
