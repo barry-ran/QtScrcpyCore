@@ -7,6 +7,8 @@ extern "C"
 #include "libavcodec/avcodec.h"
 }
 
+#include <functional>
+
 class VideoBuffer;
 class Decoder : public QObject
 {
