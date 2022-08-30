@@ -4,6 +4,7 @@
 #include <QMutex>
 #include <QWaitCondition>
 #include <QObject>
+#include <QMap>
 
 #include "fpscounter.h"
 
