@@ -3,6 +3,7 @@
 
 #include "compat.h"
 #include "stream.h"
+#include "videosocket.h"
 
 #define BUFSIZE 0x10000
 #define HEADER_SIZE 12
@@ -10,12 +11,17 @@
 
 typedef qint32 (*ReadPacketFunc)(void *, quint8 *, qint32);
 
-Stream::Stream(std::function<qint32(quint8*, qint32)> recvData, QObject *parent)
+Stream::Stream(QObject *parent)
     : QThread(parent)
-    , m_recvData(recvData)
 {}
 
-Stream::~Stream() {}
+Stream::~Stream() {
+    if (m_videoSocket) {
+        m_videoSocket->close();
+        delete m_videoSocket;
+        m_videoSocket = Q_NULLPTR;
+    }
+}
 
 static void avLogCallback(void *avcl, int level, const char *fmt, va_list vl)
 {
@@ -64,6 +70,12 @@ void Stream::deInit()
     avformat_network_deinit(); // ignore failure
 }
 
+void Stream::installVideoSocket(VideoSocket *videoSocket)
+{
+    videoSocket->moveToThread(this);
+    m_videoSocket = videoSocket;
+}
+
 static quint32 bufferRead32be(quint8 *buf)
 {
     return static_cast<quint32>((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
@@ -78,17 +90,17 @@ static quint64 bufferRead64be(quint8 *buf)
 
 qint32 Stream::recvData(quint8 *buf, qint32 bufSize)
 {
-    if (!buf || !m_recvData) {
+    if (!buf || !m_videoSocket) {
         return 0;
     }
 
-    qint32 len = m_recvData(buf, bufSize);
+    qint32 len = m_videoSocket->subThreadRecvData(buf, bufSize);
     return len;
 }
 
 bool Stream::startDecode()
 {
-    if (!m_recvData) {
+    if (!m_videoSocket) {
         return false;
     }
     start();

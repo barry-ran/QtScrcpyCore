@@ -36,14 +36,7 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
         }, params.gameScript, this);
     }
 
-    m_stream = new Stream([this](quint8 *buf, qint32 bufSize) -> qint32 {
-        auto videoSocket = m_server->getVideoSocket();
-        if (!videoSocket) {
-            return 0;
-        }
-
-        return videoSocket->subThreadRecvData(buf, bufSize);
-    }, this);
+    m_stream = new Stream(this);
 
     m_server = new Server(this);
     if (m_params.recordFile && !m_params.recordPath.trimmed().isEmpty()) {
@@ -191,7 +184,8 @@ void Device::initSignals()
                     m_decoder->open();
                 }
 
-                // init decoder
+                // init stream
+                m_stream->installVideoSocket(m_server->removeVideoSocket());
                 m_stream->startDecode();
 
                 // recv device msg

@@ -60,7 +60,7 @@ public:
     void stop();
     bool isReverse();
     Server::ServerParams getParams();
-    VideoSocket *getVideoSocket();
+    VideoSocket *removeVideoSocket();
     QTcpSocket *getControlSocket();
 
 signals:

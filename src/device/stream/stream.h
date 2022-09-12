@@ -10,17 +10,19 @@ extern "C"
 #include "libavformat/avformat.h"
 }
 
+class VideoSocket;
 class Stream : public QThread
 {
     Q_OBJECT
 public:
-    Stream(std::function<qint32(quint8*, qint32)> recvData, QObject *parent = Q_NULLPTR);
+    Stream(QObject *parent = Q_NULLPTR);
     virtual ~Stream();
 
 public:
     static bool init();
     static void deInit();
 
+    void installVideoSocket(VideoSocket* videoSocket);
     bool startDecode();
     void stopDecode();
 
@@ -39,7 +41,7 @@ protected:
     qint32 recvData(quint8 *buf, qint32 bufSize);
 
 private:
-    std::function<qint32(quint8*, qint32)> m_recvData = nullptr;
+    QPointer<VideoSocket> m_videoSocket = Q_NULLPTR;
 
     AVCodecContext *m_codecCtx = Q_NULLPTR;
     AVCodecParserContext *m_parser = Q_NULLPTR;
