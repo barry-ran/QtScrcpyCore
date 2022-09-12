@@ -216,9 +216,11 @@ void Server::timerEvent(QTimerEvent *event)
     }
 }
 
-VideoSocket *Server::getVideoSocket()
+VideoSocket* Server::removeVideoSocket()
 {
-    return m_videoSocket;
+    VideoSocket* socket = m_videoSocket;
+    m_videoSocket = Q_NULLPTR;
+    return socket;
 }
 
 QTcpSocket *Server::getControlSocket()
@@ -234,10 +236,6 @@ void Server::stop()
         stopAcceptTimeoutTimer();
     }
 
-    if (m_videoSocket) {
-        m_videoSocket->close();
-        m_videoSocket->deleteLater();
-    }
     if (m_controlSocket) {
         m_controlSocket->close();
         m_controlSocket->deleteLater();
