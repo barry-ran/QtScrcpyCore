@@ -28,7 +28,7 @@ AVPacket *Recorder::packetNew(const AVPacket *packet)
 void Recorder::packetDelete(AVPacket *packet)
 {
     av_packet_unref(packet);
-    delete packet;
+    av_packet_free(&packet);
 }
 
 void Recorder::queueClear()
