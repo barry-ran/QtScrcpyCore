@@ -5,6 +5,7 @@
 #include <QWaitCondition>
 #include <QObject>
 
+#include <functional>
 #include "fpscounter.h"
 
 // forward declarations
