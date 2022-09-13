@@ -117,9 +117,10 @@ void VideoBuffer::peekRenderedFrame(std::function<void(int width, int height, ui
     auto frame = m_renderingframe;
     int width = frame->width;
     int height = frame->height;
+    int linesize = frame->linesize[0];
 
     // create buffer
-    uint8_t* rgbBuffer = new uint8_t[width * height * 4];
+    uint8_t* rgbBuffer = new uint8_t[linesize * height * 4];
     AVFrame *rgbFrame = av_frame_alloc();
     if (!rgbFrame) {
         delete [] rgbBuffer;
