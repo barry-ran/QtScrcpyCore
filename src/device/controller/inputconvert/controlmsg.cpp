@@ -49,11 +49,12 @@ void ControlMsg::setInjectTouchMsgData(quint64 id, AndroidMotioneventAction acti
     m_data.injectTouch.pressure = pressure;
 }
 
-void ControlMsg::setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll)
+void ControlMsg::setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll, AndroidMotioneventButtons buttons)
 {
     m_data.injectScroll.position = position;
     m_data.injectScroll.hScroll = hScroll;
     m_data.injectScroll.vScroll = vScroll;
+    m_data.injectScroll.buttons = buttons;
 }
 
 void ControlMsg::setGetClipboardMsgData(ControlMsg::GetClipboardCopyKey copyKey) 
@@ -136,6 +137,7 @@ QByteArray ControlMsg::serializeData()
         writePosition(buffer, m_data.injectScroll.position);
         BufferUtil::write32(buffer, m_data.injectScroll.hScroll);
         BufferUtil::write32(buffer, m_data.injectScroll.vScroll);
+        BufferUtil::write32(buffer, m_data.injectScroll.buttons);
         break;
     case CMT_BACK_OR_SCREEN_ON:
         buffer.putChar(m_data.backOrScreenOn.action);

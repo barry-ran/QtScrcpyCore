@@ -141,6 +141,7 @@ bool Server::execute()
     if (!m_params.crop.isEmpty()) {
         args << QString("crop=%1").arg(m_params.crop);
     }
+    args << "send_frame_meta=true";
     args << QString("control=%1").arg((m_params.control ? "true" : "false"));
     args << "display_id=0";                                     // display id
     args << "show_touches=false";                                 // show touch
@@ -154,6 +155,15 @@ bool Server::execute()
     if (!m_params.codecName.isEmpty()) {
         args << QString("encoder_name=%1").arg(m_params.codecName);
     }
+    args << "power_off_on_close=false";
+    args << "clipboard_autosync=true";
+    args << "downsize_on_error=false";
+    args << "cleanup=true";
+    args << "power_on=true";
+    args << "send_device_meta=true";
+    args << "send_frame_meta=true";
+    args << "send_dummy_byte=true";
+    args << "raw_video_stream=false";
 
 #ifdef SERVER_DEBUGGER
     qInfo("Server debugger waiting for a client on device port " SERVER_DEBUGGER_PORT "...");
@@ -322,7 +332,7 @@ void Server::stopAcceptTimeoutTimer()
 void Server::startConnectTimeoutTimer()
 {
     stopConnectTimeoutTimer();
-    m_connectTimeoutTimer = startTimer(100);
+    m_connectTimeoutTimer = startTimer(300);
 }
 
 void Server::stopConnectTimeoutTimer()

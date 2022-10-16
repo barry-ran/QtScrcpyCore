@@ -6,7 +6,7 @@
 #include "devicemanage.h"
 #include "server.h"
 #include "device.h"
-#include "stream.h"
+#include "demuxer.h"
 
 namespace qsc {
 
@@ -18,11 +18,11 @@ IDeviceManage& IDeviceManage::getInstance() {
 }
 
 DeviceManage::DeviceManage() {
-    Stream::init();
+    Demuxer::init();
 }
 
 DeviceManage::~DeviceManage() {
-    Stream::deInit();
+    Demuxer::deInit();
 }
 
 QPointer<IDevice> DeviceManage::getDevice(const QString &serial)

@@ -93,8 +93,8 @@ set(QSC_DEVICE_SOURCES
     src/device/server/tcpserver.cpp
     src/device/server/videosocket.h
     src/device/server/videosocket.cpp
-    src/device/stream/stream.h
-    src/device/stream/stream.cpp
+    src/device/demuxer/demuxer.h
+    src/device/demuxer/demuxer.cpp
 )
 source_group(src/device FILES ${QSC_DEVICE_SOURCES})
 
@@ -134,7 +134,7 @@ target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DI
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/controller/inputconvert)
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/controller/inputconvert/keymap)
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/server)
-target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/stream)
+target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/demuxer)
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/ui)
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/device/recorder)
 target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/devicemanage)

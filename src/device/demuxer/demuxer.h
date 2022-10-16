@@ -11,12 +11,12 @@ extern "C"
 }
 
 class VideoSocket;
-class Stream : public QThread
+class Demuxer : public QThread
 {
     Q_OBJECT
 public:
-    Stream(QObject *parent = Q_NULLPTR);
-    virtual ~Stream();
+    Demuxer(QObject *parent = Q_NULLPTR);
+    virtual ~Demuxer();
 
 public:
     static bool init();
@@ -47,8 +47,7 @@ private:
     AVCodecParserContext *m_parser = Q_NULLPTR;
     // successive packets may need to be concatenated, until a non-config
     // packet is available
-    bool m_hasPending = false;
-    AVPacket m_pending;
+    AVPacket* m_pending = Q_NULLPTR;
 };
 
 #endif // STREAM_H

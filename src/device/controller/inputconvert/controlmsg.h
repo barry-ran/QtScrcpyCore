@@ -12,9 +12,9 @@
 #define CONTROL_MSG_MAX_SIZE (1 << 18) // 256k
 
 #define CONTROL_MSG_INJECT_TEXT_MAX_LENGTH 300
-// type: 1 byte; paste flag: 1 byte; length: 4 bytes
+// type: 1 byte; sequence: 8 bytes; paste flag: 1 byte; length: 4 bytes
 #define CONTROL_MSG_CLIPBOARD_TEXT_MAX_LENGTH \
-    (CONTROL_MSG_MAX_SIZE - 6)
+    (CONTROL_MSG_MAX_SIZE - 14)
 
 #define POINTER_ID_MOUSE static_cast<quint64>(-1)
 #define POINTER_ID_VIRTUAL_FINGER UINT64_C(-2)
@@ -62,7 +62,7 @@ public:
     // action 只能是AMOTION_EVENT_ACTION_DOWN，AMOTION_EVENT_ACTION_UP，AMOTION_EVENT_ACTION_MOVE
     // position action动作对应的位置
     void setInjectTouchMsgData(quint64 id, AndroidMotioneventAction action, AndroidMotioneventButtons buttons, QRect position, float pressure);
-    void setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll);
+    void setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll, AndroidMotioneventButtons buttons);
     void setGetClipboardMsgData(ControlMsg::GetClipboardCopyKey copyKey); 
     void setSetClipboardMsgData(QString &text, bool paste);
     void setSetScreenPowerModeData(ControlMsg::ScreenPowerMode mode);
@@ -104,6 +104,7 @@ private:
                 QRect position;
                 qint32 hScroll;
                 qint32 vScroll;
+                AndroidMotioneventButtons buttons;
             } injectScroll;
             struct
             {
