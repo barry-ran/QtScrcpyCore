@@ -78,7 +78,7 @@ void InputConvertNormal::wheelEvent(const QWheelEvent *from, const QSize &frameS
     if (!controlMsg) {
         return;
     }
-    controlMsg->setInjectScrollMsgData(QRect(pos.toPoint(), frameSize), hScroll, vScroll);
+    controlMsg->setInjectScrollMsgData(QRect(pos.toPoint(), frameSize), hScroll, vScroll, convertMouseButtons(from->buttons()));
     sendControlMsg(controlMsg);
 }
 

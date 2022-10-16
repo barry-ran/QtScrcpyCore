@@ -18,7 +18,7 @@ class Server;
 class VideoBuffer;
 class Decoder;
 class FileHandler;
-class Stream;
+class Demuxer;
 class VideoForm;
 class Controller;
 struct AVFrame;
@@ -86,7 +86,7 @@ private:
     QPointer<Decoder> m_decoder;
     QPointer<Controller> m_controller;
     QPointer<FileHandler> m_fileHandler;
-    QPointer<Stream> m_stream;
+    QPointer<Demuxer> m_stream;
     QPointer<Recorder> m_recorder;
 
     QElapsedTimer m_startTimeCount;

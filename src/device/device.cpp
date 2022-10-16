@@ -9,7 +9,7 @@
 #include "filehandler.h"
 #include "recorder.h"
 #include "server.h"
-#include "stream.h"
+#include "demuxer.h"
 
 namespace qsc {
 
@@ -36,7 +36,7 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
         }, params.gameScript, this);
     }
 
-    m_stream = new Stream(this);
+    m_stream = new Demuxer(this);
 
     m_server = new Server(this);
     if (m_params.recordFile && !m_params.recordPath.trimmed().isEmpty()) {
@@ -222,11 +222,11 @@ void Device::initSignals()
     }
 
     if (m_stream) {
-        connect(m_stream, &Stream::onStreamStop, this, [this]() {
+        connect(m_stream, &Demuxer::onStreamStop, this, [this]() {
             disconnectDevice();
             qDebug() << "stream thread stop";
         });
-        connect(m_stream, &Stream::getFrame, this, [this](AVPacket *packet) {
+        connect(m_stream, &Demuxer::getFrame, this, [this](AVPacket *packet) {
             if (m_decoder && !m_decoder->push(packet)) {
                 qCritical("Could not send packet to decoder");
             }
@@ -235,7 +235,7 @@ void Device::initSignals()
                 qCritical("Could not send packet to recorder");
             }
         }, Qt::DirectConnection);
-        connect(m_stream, &Stream::getConfigFrame, this, [this](AVPacket *packet) {
+        connect(m_stream, &Demuxer::getConfigFrame, this, [this](AVPacket *packet) {
             if (m_recorder && !m_recorder->push(packet)) {
                 qCritical("Could not send config packet to recorder");
             }
