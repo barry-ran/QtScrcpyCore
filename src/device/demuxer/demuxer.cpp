@@ -119,6 +119,7 @@ void Demuxer::run()
 {
     m_codecCtx = Q_NULLPTR;
     m_parser = Q_NULLPTR;
+    AVPacket* packet = Q_NULLPTR;
 
     // codec
     const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
@@ -144,7 +145,7 @@ void Demuxer::run()
     // It's more complicated, but this allows to reduce the latency by 1 frame!
     m_parser->flags |= PARSER_FLAG_COMPLETE_FRAMES;
 
-    AVPacket *packet = av_packet_alloc();
+    packet = av_packet_alloc();
     if (!packet) {
         qCritical("OOM");
         goto runQuit;
