@@ -156,14 +156,18 @@ bool Server::execute()
         args << QString("encoder_name=%1").arg(m_params.codecName);
     }
     args << "power_off_on_close=false";
-    args << "clipboard_autosync=true";
-    args << "downsize_on_error=false";
+    
+    // 服务端有默认值，这里不传，传参太长导致三星手机报错：stack corruption detected (-fstack-protector)
+    /*
+    args << "clipboard_autosync=true";    
+    args << "downsize_on_error=true";
     args << "cleanup=true";
     args << "power_on=true";
     args << "send_device_meta=true";
     args << "send_frame_meta=true";
     args << "send_dummy_byte=true";
     args << "raw_video_stream=false";
+    */
 
 #ifdef SERVER_DEBUGGER
     qInfo("Server debugger waiting for a client on device port " SERVER_DEBUGGER_PORT "...");
