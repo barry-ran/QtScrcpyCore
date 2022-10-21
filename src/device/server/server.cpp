@@ -130,22 +130,35 @@ bool Server::execute()
     args << "com.genymobile.scrcpy.Server";
     args << m_params.serverVersion;
 
+    args << QString("bit_rate=%1").arg(QString::number(m_params.bitRate));
     if (!m_params.logLevel.isEmpty()) {
         args << QString("log_level=%1").arg(m_params.logLevel);
     }
-    args << QString("max_size=%1").arg(QString::number(m_params.maxSize));
-    args << QString("bit_rate=%1").arg(QString::number(m_params.bitRate));
-    args << QString("max_fps=%1").arg(QString::number(m_params.maxFps));
-    args << QString("lock_video_orientation=%1").arg(QString::number(m_params.lockVideoOrientation));
-    args << QString("tunnel_forward=%1").arg((m_tunnelForward ? "true" : "false"));
+    if (m_params.maxSize > 0) {
+        args << QString("max_size=%1").arg(QString::number(m_params.maxSize));
+    }
+    if (m_params.maxFps > 0) {
+        args << QString("max_fps=%1").arg(QString::number(m_params.maxFps));
+    }
+    if (-1 != m_params.lockVideoOrientation) {
+        args << QString("lock_video_orientation=%1").arg(QString::number(m_params.lockVideoOrientation));
+    }
+    if (m_tunnelForward) {
+        args << QString("tunnel_forward=true");
+    }
     if (!m_params.crop.isEmpty()) {
         args << QString("crop=%1").arg(m_params.crop);
     }
-    args << "send_frame_meta=true";
-    args << QString("control=%1").arg((m_params.control ? "true" : "false"));
-    args << "display_id=0";                                     // display id
-    args << "show_touches=false";                                 // show touch
-    args << QString("stay_awake=%1").arg((m_params.stayAwake ? "true" : "false")); // stay awake
+    if (!m_params.control) {
+        args << QString("control=false");
+    }
+    // 默认是0，不需要设置
+    // args << "display_id=0";
+    // 默认是false，不需要设置
+    // args << "show_touches=false";
+    if (m_params.stayAwake) {
+        args << QString("stay_awake=true");
+    }
     // code option
     // https://github.com/Genymobile/scrcpy/commit/080a4ee3654a9b7e96c8ffe37474b5c21c02852a
     // <https://d.android.com/reference/android/media/MediaFormat>
@@ -155,14 +168,16 @@ bool Server::execute()
     if (!m_params.codecName.isEmpty()) {
         args << QString("encoder_name=%1").arg(m_params.codecName);
     }
-    args << "power_off_on_close=false";
-    
-    // 服务端有默认值，这里不传，传参太长导致三星手机报错：stack corruption detected (-fstack-protector)
+    // 默认是false，不需要设置
+    // args << "power_off_on_close=false";
+
+    // 下面的参数都用服务端默认值即可，尽量减少参数传递，传参太长导致三星手机报错：stack corruption detected (-fstack-protector)
     /*
     args << "clipboard_autosync=true";    
     args << "downsize_on_error=true";
     args << "cleanup=true";
     args << "power_on=true";
+    
     args << "send_device_meta=true";
     args << "send_frame_meta=true";
     args << "send_dummy_byte=true";
