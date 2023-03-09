@@ -4,7 +4,6 @@
 #include <QWheelEvent>
 
 #include "devicemanage.h"
-#include "server.h"
 #include "device.h"
 #include "demuxer.h"
 
