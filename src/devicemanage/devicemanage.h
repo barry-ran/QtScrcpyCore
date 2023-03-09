@@ -2,7 +2,6 @@
 #define DEVICEMANAGE_H
 
 #include <QMap>
-#include <QPointer>
 
 #include "../../include/QtScrcpyCore.h"
 

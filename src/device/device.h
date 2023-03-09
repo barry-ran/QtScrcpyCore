@@ -8,8 +8,6 @@
 
 #include "../../include/QtScrcpyCore.h"
 
-#include "controlmsg.h"
-
 class QMouseEvent;
 class QWheelEvent;
 class QKeyEvent;
