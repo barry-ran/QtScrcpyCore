@@ -17,7 +17,11 @@
     (CONTROL_MSG_MAX_SIZE - 14)
 
 #define POINTER_ID_MOUSE static_cast<quint64>(-1)
-#define POINTER_ID_VIRTUAL_FINGER UINT64_C(-2)
+#define POINTER_ID_GENERIC_FINGER static_cast<quint64>(-2)
+
+// Used for injecting an additional virtual pointer for pinch-to-zoom
+#define POINTER_ID_VIRTUAL_MOUSE static_cast<quint64>(-3)
+#define POINTER_ID_VIRTUAL_FINGER static_cast<quint64>(-4)
 
 // ControlMsg
 class ControlMsg : public QScrcpyEvent
@@ -61,7 +65,13 @@ public:
     // id 代表一个触摸点，最多支持10个触摸点[0,9]
     // action 只能是AMOTION_EVENT_ACTION_DOWN，AMOTION_EVENT_ACTION_UP，AMOTION_EVENT_ACTION_MOVE
     // position action动作对应的位置
-    void setInjectTouchMsgData(quint64 id, AndroidMotioneventAction action, AndroidMotioneventButtons buttons, QRect position, float pressure);
+    void setInjectTouchMsgData(
+        quint64 id,
+        AndroidMotioneventAction action,
+        AndroidMotioneventButtons actionButtons,
+        AndroidMotioneventButtons buttons,
+        QRect position,
+        float pressure);
     void setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll, AndroidMotioneventButtons buttons);
     void setGetClipboardMsgData(ControlMsg::GetClipboardCopyKey copyKey); 
     void setSetClipboardMsgData(QString &text, bool paste);
@@ -72,7 +82,8 @@ public:
 
 private:
     void writePosition(QBuffer &buffer, const QRect &value);
-    quint16 toFixedPoint16(float f);
+    quint16 flostToU16fp(float f);
+    qint16 flostToI16fp(float f);
 
 private:
     struct ControlMsgData
@@ -95,6 +106,7 @@ private:
             {
                 quint64 id;
                 AndroidMotioneventAction action;
+                AndroidMotioneventButtons actionButtons;
                 AndroidMotioneventButtons buttons;
                 QRect position;
                 float pressure;

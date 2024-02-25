@@ -8,7 +8,7 @@
 #include "server.h"
 
 #define DEVICE_NAME_FIELD_LENGTH 64
-#define SOCKET_NAME "scrcpy"
+#define SOCKET_NAME_PREFIX "scrcpy"
 #define MAX_CONNECT_COUNT 30
 #define MAX_RESTART_COUNT 1
 
@@ -60,7 +60,7 @@ bool Server::enableTunnelReverse()
     if (m_workProcess.isRuning()) {
         m_workProcess.kill();
     }
-    m_workProcess.reverse(m_params.serial, SOCKET_NAME, m_params.localPort);
+    m_workProcess.reverse(m_params.serial, QString(SOCKET_NAME_PREFIX "_%1").arg(m_params.scid, 8, 16, QChar('0')), m_params.localPort);
     return true;
 }
 
@@ -75,7 +75,7 @@ bool Server::disableTunnelReverse()
             sender()->deleteLater();
         }
     });
-    adb->reverseRemove(m_params.serial, SOCKET_NAME);
+    adb->reverseRemove(m_params.serial, QString(SOCKET_NAME_PREFIX "_%1").arg(m_params.scid, 8, 16, QChar('0')));
     return true;
 }
 
@@ -84,7 +84,7 @@ bool Server::enableTunnelForward()
     if (m_workProcess.isRuning()) {
         m_workProcess.kill();
     }
-    m_workProcess.forward(m_params.serial, m_params.localPort, SOCKET_NAME);
+    m_workProcess.forward(m_params.serial, m_params.localPort, QString(SOCKET_NAME_PREFIX "_%1").arg(m_params.scid, 8, 16, QChar('0')));
     return true;
 }
 bool Server::disableTunnelForward()
@@ -130,7 +130,7 @@ bool Server::execute()
     args << "com.genymobile.scrcpy.Server";
     args << m_params.serverVersion;
 
-    args << QString("bit_rate=%1").arg(QString::number(m_params.bitRate));
+    args << QString("video_bit_rate=%1").arg(QString::number(m_params.bitRate));
     if (!m_params.logLevel.isEmpty()) {
         args << QString("log_level=%1").arg(m_params.logLevel);
     }
@@ -168,6 +168,12 @@ bool Server::execute()
     if (!m_params.codecName.isEmpty()) {
         args << QString("encoder_name=%1").arg(m_params.codecName);
     }
+    args << "audio=false";
+    // 服务端默认-1，可不传
+    if (-1 != m_params.scid) {
+        args << QString("scid=%1").arg(m_params.scid, 8, 16, QChar('0'));
+    }
+
     // 默认是false，不需要设置
     // args << "power_off_on_close=false";
 
@@ -315,22 +321,17 @@ bool Server::startServerByStep()
 
 bool Server::readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size)
 {
-    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + 4];
-    if (videoSocket->bytesAvailable() <= (DEVICE_NAME_FIELD_LENGTH + 4)) {
+    unsigned char buf[DEVICE_NAME_FIELD_LENGTH];
+    if (videoSocket->bytesAvailable() <= (DEVICE_NAME_FIELD_LENGTH)) {
         videoSocket->waitForReadyRead(300);
     }
 
     qint64 len = videoSocket->read((char *)buf, sizeof(buf));
-    if (len < DEVICE_NAME_FIELD_LENGTH + 4) {
+    if (len < DEVICE_NAME_FIELD_LENGTH) {
         qInfo("Could not retrieve device information");
         return false;
     }
     buf[DEVICE_NAME_FIELD_LENGTH - 1] = '\0'; // in case the client sends garbage
-    // strcpy is safe here, since name contains at least DEVICE_NAME_FIELD_LENGTH bytes
-    // and strlen(buf) < DEVICE_NAME_FIELD_LENGTH
-    deviceName = (char *)buf;
-    size.setWidth((buf[DEVICE_NAME_FIELD_LENGTH] << 8) | buf[DEVICE_NAME_FIELD_LENGTH + 1]);
-    size.setHeight((buf[DEVICE_NAME_FIELD_LENGTH + 2] << 8) | buf[DEVICE_NAME_FIELD_LENGTH + 3]);
     return true;
 }
 
@@ -414,6 +415,8 @@ result:
     if (success) {
         stopConnectTimeoutTimer();
         m_videoSocket = videoSocket;
+        // devices will send 1 byte first on tunnel forward mode
+        controlSocket->read(1);
         m_controlSocket = controlSocket;
         // we don't need the adb tunnel anymore
         disableTunnelForward();

@@ -16,6 +16,7 @@ public:
 
 private:
     AndroidMotioneventButtons convertMouseButtons(Qt::MouseButtons buttonState);
+    AndroidMotioneventButtons convertMouseButton(Qt::MouseButton button);
     AndroidKeycode convertKeyCode(int key, Qt::KeyboardModifiers modifiers);
     AndroidMetastate convertMetastate(Qt::KeyboardModifiers modifiers);
 };

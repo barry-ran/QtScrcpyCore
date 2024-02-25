@@ -3,6 +3,10 @@
 #include "bufferutil.h"
 #include "controlmsg.h"
 
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+#define CLAMP(V, X, Y) MIN(MAX((V), (X)), (Y))
+
 ControlMsg::ControlMsg(ControlMsgType controlMsgType) : QScrcpyEvent(Control)
 {
     m_data.type = controlMsgType;
@@ -40,10 +44,17 @@ void ControlMsg::setInjectTextMsgData(QString &text)
     m_data.injectText.text[tmp.length()] = '\0';
 }
 
-void ControlMsg::setInjectTouchMsgData(quint64 id, AndroidMotioneventAction action, AndroidMotioneventButtons buttons, QRect position, float pressure)
+void ControlMsg::setInjectTouchMsgData(
+    quint64 id,
+    AndroidMotioneventAction action,
+    AndroidMotioneventButtons actionButtons,
+    AndroidMotioneventButtons buttons,
+    QRect position,
+    float pressure)
 {
     m_data.injectTouch.id = id;
     m_data.injectTouch.action = action;
+    m_data.injectTouch.actionButtons = actionButtons;
     m_data.injectTouch.buttons = buttons;
     m_data.injectTouch.position = position;
     m_data.injectTouch.pressure = pressure;
@@ -52,8 +63,8 @@ void ControlMsg::setInjectTouchMsgData(quint64 id, AndroidMotioneventAction acti
 void ControlMsg::setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll, AndroidMotioneventButtons buttons)
 {
     m_data.injectScroll.position = position;
-    m_data.injectScroll.hScroll = hScroll;
-    m_data.injectScroll.vScroll = vScroll;
+    m_data.injectScroll.hScroll = CLAMP(hScroll, -1, 1);
+    m_data.injectScroll.vScroll = CLAMP(vScroll, -1, 1);
     m_data.injectScroll.buttons = buttons;
 }
 
@@ -97,7 +108,7 @@ void ControlMsg::writePosition(QBuffer &buffer, const QRect &value)
     BufferUtil::write16(buffer, value.height());
 }
 
-quint16 ControlMsg::toFixedPoint16(float f)
+quint16 ControlMsg::flostToU16fp(float f)
 {
     Q_ASSERT(f >= 0.0f && f <= 1.0f);
     quint32 u = f * 0x1p16f; // 2^16
@@ -105,6 +116,18 @@ quint16 ControlMsg::toFixedPoint16(float f)
         u = 0xffff;
     }
     return (quint16)u;
+}
+
+qint16 ControlMsg::flostToI16fp(float f)
+{
+    Q_ASSERT(f >= -1.0f && f <= 1.0f);
+    qint32 i = f * 0x1p15f; // 2^15
+    Q_ASSERT(i >= -0x8000);
+    if (i >= 0x7fff) {
+        Q_ASSERT(i == 0x8000); // for f == 1.0f
+        i = 0x7fff;
+    }
+    return (qint16)i;
 }
 
 QByteArray ControlMsg::serializeData()
@@ -129,14 +152,15 @@ QByteArray ControlMsg::serializeData()
         buffer.putChar(m_data.injectTouch.action);
         BufferUtil::write64(buffer, m_data.injectTouch.id);
         writePosition(buffer, m_data.injectTouch.position);
-        quint16 pressure = toFixedPoint16(m_data.injectTouch.pressure);
+        quint16 pressure = flostToU16fp(m_data.injectTouch.pressure);
         BufferUtil::write16(buffer, pressure);
+        BufferUtil::write32(buffer, m_data.injectTouch.actionButtons);
         BufferUtil::write32(buffer, m_data.injectTouch.buttons);
     } break;
     case CMT_INJECT_SCROLL:
         writePosition(buffer, m_data.injectScroll.position);
-        BufferUtil::write32(buffer, m_data.injectScroll.hScroll);
-        BufferUtil::write32(buffer, m_data.injectScroll.vScroll);
+        BufferUtil::write16(buffer, flostToI16fp(m_data.injectScroll.hScroll));
+        BufferUtil::write16(buffer, flostToI16fp(m_data.injectScroll.vScroll));
         BufferUtil::write32(buffer, m_data.injectScroll.buttons);
         break;
     case CMT_BACK_OR_SCREEN_ON:

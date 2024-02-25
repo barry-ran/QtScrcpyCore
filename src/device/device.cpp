@@ -280,6 +280,7 @@ bool Device::connectDevice()
         params.logLevel = m_params.logLevel;
         params.codecOptions = m_params.codecOptions;
         params.codecName = m_params.codecName;
+        params.scid = m_params.scid;
 
         params.crop = "";
         params.control = true;

@@ -38,7 +38,8 @@ void Controller::recvDeviceMsg(DeviceMsg *deviceMsg)
 void Controller::test(QRect rc)
 {
     ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_INJECT_TOUCH);
-    controlMsg->setInjectTouchMsgData(static_cast<quint64>(POINTER_ID_MOUSE), AMOTION_EVENT_ACTION_DOWN, AMOTION_EVENT_BUTTON_PRIMARY, rc, 1.0f);
+    controlMsg->setInjectTouchMsgData(
+        static_cast<quint64>(POINTER_ID_MOUSE), AMOTION_EVENT_ACTION_DOWN, AMOTION_EVENT_BUTTON_PRIMARY, AMOTION_EVENT_BUTTON_PRIMARY, rc, 1.0f);
     postControlMsg(controlMsg);
 }
 

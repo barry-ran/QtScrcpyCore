@@ -39,7 +39,7 @@ public:
         bool useReverse = true;        // true:先使用adb reverse，失败后自动使用adb forward；false:直接使用adb forward
         int lockVideoOrientation = -1; // 是否锁定视频方向
         int stayAwake = false;         // 是否保持唤醒
-        QString serverVersion = "1.24";// server版本
+        QString serverVersion = "2.1.1"; // server版本
         QString logLevel = "debug";  // log级别 verbose/debug/info/warn/error
         // 编码选项 ""表示默认
         // 例如 CodecOptions="profile=1,level=2"
@@ -51,6 +51,7 @@ public:
 
         QString crop = "";             // 视频裁剪
         bool control = true;           // 安卓端是否接收键鼠控制
+        quint32 scid = -1;             // 随机数，作为localsocket名字后缀，方便同时连接同一个设备多次
     };
 
     explicit Server(QObject *parent = nullptr);
