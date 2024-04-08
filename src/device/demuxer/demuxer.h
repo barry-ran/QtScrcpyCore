@@ -43,7 +43,7 @@ protected:
     qint32 recvData(quint8 *buf, qint32 bufSize);
 
 private:
-    QPointer<VideoSocket> m_videoSocket = Q_NULLPTR;
+    QPointer<VideoSocket> m_videoSocket;
     QSize m_frameSize;
 
     AVCodecContext *m_codecCtx = Q_NULLPTR;
