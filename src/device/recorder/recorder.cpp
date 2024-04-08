@@ -242,6 +242,7 @@ Recorder::RecorderFormat Recorder::guessRecordFormat(const QString &fileName)
 
 void Recorder::run()
 {
+    qint64 ptsOrigin = AV_NOPTS_VALUE;
     for (;;) {
         AVPacket *rec = Q_NULLPTR;
         {
@@ -286,6 +287,14 @@ void Recorder::run()
             // we now know the duration of the previous packet
             previous->duration = rec->pts - previous->pts;
         }
+
+        if (previous->pts != AV_NOPTS_VALUE) {
+            if (ptsOrigin == AV_NOPTS_VALUE) {
+                ptsOrigin = previous->pts;
+            }
+            previous->pts -= ptsOrigin;
+            previous->dts = previous->pts;
+        }        
 
         bool ok = write(previous);
         packetDelete(previous);

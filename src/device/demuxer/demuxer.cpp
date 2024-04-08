@@ -73,6 +73,11 @@ void Demuxer::installVideoSocket(VideoSocket *videoSocket)
     m_videoSocket = videoSocket;
 }
 
+void Demuxer::setFrameSize(const QSize &frameSize)
+{
+    m_frameSize = frameSize;
+}
+
 static quint32 bufferRead32be(quint8 *buf)
 {
     return static_cast<quint32>((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
@@ -113,12 +118,7 @@ void Demuxer::run()
 {
     m_codecCtx = Q_NULLPTR;
     m_parser = Q_NULLPTR;
-    AVPacket* packet = Q_NULLPTR;
-
-    quint8 header[HEADER_SIZE];
-    qint32 r = 0;
-    quint32 width = 0;
-    quint32 height = 0;
+    AVPacket *packet = Q_NULLPTR;
 
     // codec
     const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
@@ -127,14 +127,6 @@ void Demuxer::run()
         goto runQuit;
     }
 
-    r = recvData(header, HEADER_SIZE);
-    if (r < HEADER_SIZE) {
-        goto runQuit;
-    }
-    // 前4个字节是AVCodecID,当前只支持H264,所以先不解析
-    width = bufferRead32be(&header[4]);
-    height = bufferRead32be(&header[4]);
-
     // codeCtx
     m_codecCtx = avcodec_alloc_context3(codec);
     if (!m_codecCtx) {
@@ -142,8 +134,8 @@ void Demuxer::run()
         goto runQuit;
     }
     m_codecCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    m_codecCtx->width = width;
-    m_codecCtx->height = height;
+    m_codecCtx->width = m_frameSize.width();
+    m_codecCtx->height = m_frameSize.height();
     m_codecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
 
     m_parser = av_parser_init(AV_CODEC_ID_H264);

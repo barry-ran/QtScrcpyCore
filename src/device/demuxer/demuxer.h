@@ -2,6 +2,7 @@
 #define STREAM_H
 
 #include <QPointer>
+#include <QSize>
 #include <QThread>
 
 extern "C"
@@ -23,6 +24,7 @@ public:
     static void deInit();
 
     void installVideoSocket(VideoSocket* videoSocket);
+    void setFrameSize(const QSize &frameSize);
     bool startDecode();
     void stopDecode();
 
@@ -42,6 +44,7 @@ protected:
 
 private:
     QPointer<VideoSocket> m_videoSocket = Q_NULLPTR;
+    QSize m_frameSize;
 
     AVCodecContext *m_codecCtx = Q_NULLPTR;
     AVCodecParserContext *m_parser = Q_NULLPTR;

@@ -186,6 +186,7 @@ void Device::initSignals()
 
                 // init stream
                 m_stream->installVideoSocket(m_server->removeVideoSocket());
+                m_stream->setFrameSize(size);
                 m_stream->startDecode();
 
                 // recv device msg

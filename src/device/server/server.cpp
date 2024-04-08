@@ -1,5 +1,6 @@
 #include <QCoreApplication>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QThread>
 #include <QTimer>
@@ -11,6 +12,11 @@
 #define SOCKET_NAME_PREFIX "scrcpy"
 #define MAX_CONNECT_COUNT 30
 #define MAX_RESTART_COUNT 1
+
+static quint32 bufferRead32be(quint8 *buf)
+{
+    return static_cast<quint32>((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
+}
 
 Server::Server(QObject *parent) : QObject(parent)
 {
@@ -321,17 +327,30 @@ bool Server::startServerByStep()
 
 bool Server::readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size)
 {
-    unsigned char buf[DEVICE_NAME_FIELD_LENGTH];
-    if (videoSocket->bytesAvailable() <= (DEVICE_NAME_FIELD_LENGTH)) {
+    QElapsedTimer timer;
+    timer.start();
+    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + 12];
+    while (videoSocket->bytesAvailable() <= (DEVICE_NAME_FIELD_LENGTH + 12)) {
         videoSocket->waitForReadyRead(300);
+        if (timer.elapsed() > 3000) {
+            qInfo("readInfo timeout");
+            return false;
+        }
     }
+    qDebug() << "readInfo wait time:" << timer.elapsed();
 
     qint64 len = videoSocket->read((char *)buf, sizeof(buf));
-    if (len < DEVICE_NAME_FIELD_LENGTH) {
+    if (len < DEVICE_NAME_FIELD_LENGTH + 12) {
         qInfo("Could not retrieve device information");
         return false;
     }
     buf[DEVICE_NAME_FIELD_LENGTH - 1] = '\0'; // in case the client sends garbage
+    deviceName = QString::fromUtf8((const char *)buf);
+
+    // 前4个字节是AVCodecID,当前只支持H264,所以先不解析
+    size.setWidth(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 4]));
+    size.setHeight(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 8]));
+
     return true;
 }
 
