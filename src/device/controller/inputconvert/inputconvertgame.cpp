@@ -556,8 +556,16 @@ bool InputConvertGame::processMouseMove(const QMouseEvent *from)
         return true;
     }
 
-    if (!m_ctrlMouseMove.lastPos.isNull() && m_processMouseMove) {
-        QPointF distance_raw{from->localPos() - m_ctrlMouseMove.lastPos};
+    auto lastPos = m_ctrlMouseMove.lastPos;
+    m_ctrlMouseMove.lastPos = from->localPos();
+
+    if (m_ctrlMouseMove.ignoreCount > 0) {
+        --m_ctrlMouseMove.ignoreCount;
+        return true;
+    }
+
+    if (!lastPos.isNull() && m_processMouseMove) {
+        QPointF distance_raw{from->localPos() - lastPos};
         QPointF speedRatio  {m_keyMap.getMouseMoveMap().data.mouseMove.speedRatio};
         QPointF distance    {distance_raw.x() / speedRatio.x(), distance_raw.y() / speedRatio.y()};
 
@@ -579,13 +587,14 @@ bool InputConvertGame::processMouseMove(const QMouseEvent *from)
                 });
             } else {
                 mouseMoveStopTouch();
-                mouseMoveStartTouch(from);
+                m_ctrlMouseMove.ignoreCount = 5;
+                return true;
             }
         }
 
         sendTouchMoveEvent(getTouchID(Qt::ExtraButton24), m_ctrlMouseMove.lastConverPos);
     }
-    m_ctrlMouseMove.lastPos = from->localPos();
+
     return true;
 }
 

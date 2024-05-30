@@ -115,6 +115,7 @@ private:
         bool touching = false;
         int timer = 0;
         bool smallEyes = false;
+        int ignoreCount = 0;
     } m_ctrlMouseMove;
 
     // for drag delay
