@@ -146,8 +146,16 @@ bool Server::execute()
     if (m_params.maxFps > 0) {
         args << QString("max_fps=%1").arg(QString::number(m_params.maxFps));
     }
-    if (-1 != m_params.lockVideoOrientation) {
-        args << QString("lock_video_orientation=%1").arg(QString::number(m_params.lockVideoOrientation));
+
+    // capture_orientation=@90
+    // 有@表示锁定，没@不锁定
+    // 有值表示指定方向，没值表示原始方向
+    if (1 == m_params.captureOrientationLock) {
+        args << QString("capture_orientation=@%1").arg(m_params.captureOrientation);
+    } else if (2 == m_params.captureOrientationLock) {
+        args << QString("capture_orientation=@");
+    } else {
+        args << QString("capture_orientation=%1").arg(m_params.captureOrientation);
     }
     if (m_tunnelForward) {
         args << QString("tunnel_forward=true");

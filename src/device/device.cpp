@@ -275,7 +275,8 @@ bool Device::connectDevice()
         params.bitRate = m_params.bitRate;
         params.maxFps = m_params.maxFps;
         params.useReverse = m_params.useReverse;
-        params.lockVideoOrientation = m_params.lockVideoOrientation;
+        params.captureOrientationLock = m_params.captureOrientationLock;
+        params.captureOrientation = m_params.captureOrientation;
         params.stayAwake = m_params.stayAwake;
         params.serverVersion = m_params.serverVersion;
         params.logLevel = m_params.logLevel;

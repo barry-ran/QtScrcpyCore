@@ -15,7 +15,8 @@ struct DeviceParams {
     quint32 bitRate = 2000000;        // 视频比特率
     quint32 maxFps = 0;               // 视频最大帧率
     bool useReverse = true;           // true:先使用adb reverse，失败后自动使用adb forward；false:直接使用adb forward
-    int lockVideoOrientation = -1;    // 是否锁定视频方向
+    int captureOrientationLock = 0;   // 是否锁定采集方向 0不锁定 1锁定指定方向 2锁定原始方向
+    int captureOrientation = 0;       // 采集方向 0 90 180 270
     bool stayAwake = false;           // 是否保持唤醒
     QString serverVersion = "2.1.1";  // server版本
     QString logLevel = "debug";     // log级别 verbose/debug/info/warn/error
