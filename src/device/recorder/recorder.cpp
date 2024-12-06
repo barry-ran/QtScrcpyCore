@@ -256,6 +256,8 @@ void Recorder::run()
             if (m_stopped && m_queue.isEmpty()) {
                 AVPacket *last = m_previous;
                 if (last) {
+                    last->pts -= ptsOrigin;
+                    last->dts = last->pts;
                     // assign an arbitrary duration to the last packet
                     last->duration = 100000;
                     bool ok = write(last);
