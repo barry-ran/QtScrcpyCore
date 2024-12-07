@@ -90,9 +90,9 @@ void ControlMsg::setSetClipboardMsgData(QString &text, bool paste)
     m_data.setClipboard.sequence = 0;
 }
 
-void ControlMsg::setSetScreenPowerModeData(ControlMsg::ScreenPowerMode mode)
+void ControlMsg::setDisplayPowerData(bool on)
 {
-    m_data.setScreenPowerMode.mode = mode;
+    m_data.setDisplayPower.on = on;
 }
 
 void ControlMsg::setBackOrScreenOnData(bool down)
@@ -175,8 +175,8 @@ QByteArray ControlMsg::serializeData()
         BufferUtil::write32(buffer, static_cast<quint32>(strlen(m_data.setClipboard.text)));
         buffer.write(m_data.setClipboard.text, strlen(m_data.setClipboard.text));
         break;
-    case CMT_SET_SCREEN_POWER_MODE:
-        buffer.putChar(m_data.setScreenPowerMode.mode);
+    case CMT_SET_DISPLAY_POWER:
+        buffer.putChar(m_data.setDisplayPower.on);
         break;
     case CMT_EXPAND_NOTIFICATION_PANEL:
     case CMT_EXPAND_SETTINGS_PANEL:

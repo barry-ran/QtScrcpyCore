@@ -54,7 +54,10 @@ public:
     virtual void postVolumeDown() {}
     virtual void postCopy() {}
     virtual void postCut() {}
-    virtual void setScreenPowerMode(bool open) { Q_UNUSED(open); }
+    virtual void setDisplayPower(bool on)
+    {
+        Q_UNUSED(on);
+    }
     virtual void expandNotificationPanel() {}
     virtual void collapsePanel() {}
     virtual void postBackOrScreenOn(bool down) { Q_UNUSED(down); }
@@ -103,7 +106,7 @@ public:
     virtual void postVolumeDown() = 0;
     virtual void postCopy() = 0;
     virtual void postCut() = 0;
-    virtual void setScreenPowerMode(bool open) = 0;
+    virtual void setDisplayPower(bool on) = 0;
     virtual void expandNotificationPanel() = 0;
     virtual void collapsePanel() = 0;
     virtual void postBackOrScreenOn(bool down) = 0;

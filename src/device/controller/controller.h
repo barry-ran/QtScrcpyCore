@@ -36,7 +36,7 @@ public:
     void cut();
     void expandNotificationPanel();
     void collapsePanel();
-    void setScreenPowerMode(ControlMsg::ScreenPowerMode mode);
+    void setDisplayPower(bool on);
 
     // for input convert
     void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize);

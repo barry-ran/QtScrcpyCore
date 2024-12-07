@@ -40,15 +40,8 @@ public:
         CMT_COLLAPSE_PANELS,
         CMT_GET_CLIPBOARD,
         CMT_SET_CLIPBOARD,
-        CMT_SET_SCREEN_POWER_MODE,
+        CMT_SET_DISPLAY_POWER,
         CMT_ROTATE_DEVICE
-    };
-
-    enum ScreenPowerMode
-    {
-        // see <https://android.googlesource.com/platform/frameworks/base.git/+/pie-release-2/core/java/android/view/SurfaceControl.java#305>
-        SPM_OFF = 0,
-        SPM_NORMAL = 2,
     };
 
     enum GetClipboardCopyKey {
@@ -75,7 +68,7 @@ public:
     void setInjectScrollMsgData(QRect position, qint32 hScroll, qint32 vScroll, AndroidMotioneventButtons buttons);
     void setGetClipboardMsgData(ControlMsg::GetClipboardCopyKey copyKey); 
     void setSetClipboardMsgData(QString &text, bool paste);
-    void setSetScreenPowerModeData(ControlMsg::ScreenPowerMode mode);
+    void setDisplayPowerData(bool on);
     void setBackOrScreenOnData(bool down);
 
     QByteArray serializeData();
@@ -135,8 +128,8 @@ private:
             } setClipboard;
             struct
             {
-                ScreenPowerMode mode;
-            } setScreenPowerMode;
+                bool on;
+            } setDisplayPower;
         };
 
         ControlMsgData() {}

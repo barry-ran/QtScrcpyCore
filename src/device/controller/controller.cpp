@@ -190,13 +190,13 @@ void Controller::postTextInput(QString &text)
     postControlMsg(controlMsg);
 }
 
-void Controller::setScreenPowerMode(ControlMsg::ScreenPowerMode mode)
+void Controller::setDisplayPower(bool on)
 {
-    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_SET_SCREEN_POWER_MODE);
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_SET_DISPLAY_POWER);
     if (!controlMsg) {
         return;
     }
-    controlMsg->setSetScreenPowerModeData(mode);
+    controlMsg->setDisplayPowerData(on);
     postControlMsg(controlMsg);
 }
 

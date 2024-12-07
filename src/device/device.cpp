@@ -210,7 +210,7 @@ void Device::initSignals()
 
                 // 显示界面时才自动息屏（m_params.display）
                 if (m_params.closeScreen && m_params.display && m_controller) {
-                    m_controller->setScreenPowerMode(ControlMsg::SPM_OFF);
+                    m_controller->setDisplayPower(false);
                 }
             } else {
                 m_server->stop();
@@ -431,21 +431,15 @@ void Device::postCut()
     }
 }
 
-void Device::setScreenPowerMode(bool open)
+void Device::setDisplayPower(bool on)
 {
     if (!m_controller) {
         return;
     }
-    ControlMsg::ScreenPowerMode mode{};
-    if (open) {
-        mode = ControlMsg::SPM_NORMAL;
-    } else {
-        mode = ControlMsg::SPM_OFF;
-    }
-    m_controller->setScreenPowerMode(mode);
+    m_controller->setDisplayPower(on);
 
     for (const auto& item : m_deviceObservers) {
-        item->setScreenPowerMode(open);
+        item->setDisplayPower(on);
     }
 }
 
