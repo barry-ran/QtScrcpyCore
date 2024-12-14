@@ -1,4 +1,4 @@
-﻿#include <QDebug>
+#include <QDebug>
 #include <QCursor>
 #include <QGuiApplication>
 #include <QTimer>
@@ -122,7 +122,8 @@ void InputConvertGame::keyEvent(const QKeyEvent *from, const QSize &frameSize, c
             processKeyClickMulti(node.data.clickMulti.keyNode.delayClickNodes, node.data.clickMulti.keyNode.delayClickNodesCount, from);
             return;
         case KeyMap::KMT_DRAG:
-            processKeyDrag(node.data.drag.keyNode.pos, node.data.drag.keyNode.extendPos, from);
+            processKeyDrag(node.data.drag.keyNode.pos, node.data.drag.keyNode.extendPos,
+                         node.data.drag.startDelay, node.data.drag.dragSpeed, from);
             return;
         case KeyMap::KMT_ANDROID_KEY:
             processAndroidKey(node.data.androidKey.keyNode.androidKey, from);
@@ -464,7 +465,7 @@ void InputConvertGame::onDragTimer() {
     }
 }
 
-void InputConvertGame::processKeyDrag(const QPointF &startPos, QPointF endPos, const QKeyEvent *from)
+void InputConvertGame::processKeyDrag(const QPointF &startPos, QPointF endPos, quint32 startDelay, float dragSpeed, const QKeyEvent *from)
 {
     if (QEvent::KeyPress == from->type()) {
         // stop last
@@ -493,11 +494,24 @@ void InputConvertGame::processKeyDrag(const QPointF &startPos, QPointF endPos, c
         m_dragDelayData.currentPos = startPos;
         m_dragDelayData.queuePos.clear();
         m_dragDelayData.queueTimer.clear();
+
+        // Clamp dragSpeed to 0-1 range
+        const float speed = qBound(0.0f, static_cast<float>(dragSpeed), 1.0f);
+        
+        // Calculate delays based on dragSpeed
+        // dragSpeed = 1 -> minDelay = 1, maxDelay = 2 (fastest)
+        // dragSpeed = 0 -> minDelay = 30, maxDelay = 40 (slowest)
+        const quint32 minDelay = static_cast<quint32>(1 + (1.0f - speed) * 29);  // 1 to 30
+        const quint32 maxDelay = minDelay + static_cast<quint32>((1.0f - speed) * 9) + 1;  // // min + (0 to 9) + 1
+
         getDelayQueue(startPos, endPos,
-                      0.01f, 0.002f, 0, 2,
+                      0.01f, 0.0005f,
+                      minDelay,
+                      maxDelay,
                       m_dragDelayData.queuePos,
                       m_dragDelayData.queueTimer);
-        m_dragDelayData.timer->start();
+
+        m_dragDelayData.timer->start(startDelay);
     }
 }
 

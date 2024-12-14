@@ -93,6 +93,8 @@ public:
             struct
             {
                 KeyNode keyNode;
+                quint32 startDelay = 0;      // delay before starting drag movement
+                float dragSpeed = 1.0;       // speed of the drag (0-1, 1=fastest)
             } drag;
             struct
             {

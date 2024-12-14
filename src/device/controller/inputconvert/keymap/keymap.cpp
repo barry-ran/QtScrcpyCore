@@ -281,6 +281,11 @@ void KeyMap::loadKeyMap(const QString &json)
                 keyMapNode.data.drag.keyNode.key = key.second;
                 keyMapNode.data.drag.keyNode.pos = getItemPos(node, "startPos");
                 keyMapNode.data.drag.keyNode.extendPos = getItemPos(node, "endPos");
+                // Read optional drag delay parameters
+                keyMapNode.data.drag.startDelay = node.contains("startDelay") ? 
+                    static_cast<quint32>(getItemDouble(node, "startDelay")) : 0;
+                keyMapNode.data.drag.dragSpeed = node.contains("dragSpeed") ? 
+                    static_cast<float>(getItemDouble(node, "dragSpeed")) : 1.0f;
                 m_keyMapNodes.push_back(keyMapNode);
                 break;
             }
