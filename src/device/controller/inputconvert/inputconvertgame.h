@@ -47,7 +47,7 @@ protected:
     void processKeyClickMulti(const KeyMap::DelayClickNode *nodes, const int count, const QKeyEvent *from);
 
     // drag
-    void processKeyDrag(const QPointF &startPos, QPointF endPos, const QKeyEvent *from);
+    void processKeyDrag(const QPointF &startPos, QPointF endPos, quint32 startDelay, float dragSpeed, const QKeyEvent *from);
 
     // android key
     void processAndroidKey(AndroidKeycode androidKey, const QKeyEvent *from);
