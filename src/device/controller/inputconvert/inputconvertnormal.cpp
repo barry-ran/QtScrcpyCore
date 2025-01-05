@@ -35,7 +35,7 @@ void InputConvertNormal::mouseEvent(const QMouseEvent *from, const QSize &frameS
     }
 
     // pos
-    QPointF pos = from->localPos();
+    QPointF pos = from->position();
     // convert pos
     pos.setX(pos.x() * frameSize.width() / showSize.width());
     pos.setY(pos.y() * frameSize.height() / showSize.height());
