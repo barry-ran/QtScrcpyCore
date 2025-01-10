@@ -45,7 +45,10 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
         if (!fileDir.isEmpty()) {
             QDateTime dateTime = QDateTime::currentDateTime();
             QString fileName = dateTime.toString("_yyyyMMdd_hhmmss_zzz");
-            fileName = m_params.serial + fileName + "." + m_params.recordFileFormat;
+            fileName = m_params.serial + fileName;
+            fileName.replace(":", "_");
+            fileName.replace(".", "_");
+            fileName += ("." + m_params.recordFileFormat);
             QDir dir(fileDir);
             absFilePath = dir.absoluteFilePath(fileName);
         }
@@ -612,7 +615,10 @@ bool Device::saveFrame(int width, int height, uint8_t* dataRGB32)
     }
     QDateTime dateTime = QDateTime::currentDateTime();
     QString fileName = dateTime.toString("_yyyyMMdd_hhmmss_zzz");
-    fileName = m_params.serial + fileName + ".png";
+    fileName = m_params.serial + fileName;
+    fileName.replace(":", "_");
+    fileName.replace(".", "_");
+    fileName += ".png";
     QDir dir(fileDir);
     absFilePath = dir.absoluteFilePath(fileName);
     int ret = rgbImage.save(absFilePath, "PNG", 100);
