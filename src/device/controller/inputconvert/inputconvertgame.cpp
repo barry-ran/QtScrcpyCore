@@ -571,7 +571,11 @@ bool InputConvertGame::processMouseMove(const QMouseEvent *from)
     }
 
     auto lastPos = m_ctrlMouseMove.lastPos;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     m_ctrlMouseMove.lastPos = from->localPos();
+#else
+    m_ctrlMouseMove.lastPos = from->position();
+#endif
 
     if (m_ctrlMouseMove.ignoreCount > 0) {
         --m_ctrlMouseMove.ignoreCount;
@@ -579,7 +583,11 @@ bool InputConvertGame::processMouseMove(const QMouseEvent *from)
     }
 
     if (!lastPos.isNull() && m_processMouseMove) {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
         QPointF distance_raw{from->localPos() - lastPos};
+#else
+        QPointF distance_raw{from->position() - lastPos};
+#endif
         QPointF speedRatio  {m_keyMap.getMouseMoveMap().data.mouseMove.speedRatio};
         QPointF distance    {distance_raw.x() / speedRatio.x(), distance_raw.y() / speedRatio.y()};
 
@@ -639,8 +647,13 @@ bool InputConvertGame::checkCursorPos(const QMouseEvent *from)
 
 void InputConvertGame::moveCursorTo(const QMouseEvent *from, const QPoint &localPosPixel)
 {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     QPoint posOffset = from->pos() - localPosPixel;
     QPoint globalPos = from->globalPos();
+#else
+    QPoint posOffset = from->position().toPoint() - localPosPixel;
+    QPoint globalPos = from->globalPosition().toPoint();
+#endif
     globalPos -= posOffset;
     //qDebug()<<"move cursor to "<<globalPos<<" offset "<<posOffset;
     QCursor::setPos(globalPos);

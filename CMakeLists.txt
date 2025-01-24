@@ -7,8 +7,19 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets Network REQUIRED)
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets Network REQUIRED)
+# Find Qt version
+if (NOT QT_DESIRED_VERSION)
+    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
+    message("   >>> Found Qt version: ${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}.${QT_VERSION_PATCH}")
+    set(QT_DESIRED_VERSION ${QT_VERSION_MAJOR})
+endif()
+
+find_package(Qt${QT_DESIRED_VERSION} REQUIRED COMPONENTS Widgets Network)
+
+set(LINK_LIBS
+    Qt${QT_DESIRED_VERSION}::Widgets
+    Qt${QT_DESIRED_VERSION}::Network
+)
 
 # check arch
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -114,8 +125,7 @@ add_library(QtScrcpyCore STATIC
 )
 
 target_link_libraries(QtScrcpyCore PRIVATE
-    Qt${QT_VERSION_MAJOR}::Widgets
-    Qt${QT_VERSION_MAJOR}::Network
+    ${LINK_LIBS}
 )
 
 set_target_properties(${QSC_PROJECT_NAME} PROPERTIES

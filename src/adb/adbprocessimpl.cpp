@@ -3,6 +3,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QRegExp>
+#else
+#include <QRegularExpression>
+#endif
 
 #include "adbprocessimpl.h"
 
@@ -24,16 +29,25 @@ AdbProcessImpl::~AdbProcessImpl()
 const QString &AdbProcessImpl::getAdbPath()
 {
     if (s_adbPath.isEmpty()) {
-        s_adbPath = QString::fromLocal8Bit(qgetenv("QTSCRCPY_ADB_PATH"));
-        QFileInfo fileInfo(s_adbPath);
-        if (s_adbPath.isEmpty() || !fileInfo.isFile()) {
-            s_adbPath = g_adbPath;
+        QStringList potentialPaths;
+        potentialPaths << QString::fromLocal8Bit(qgetenv("QTSCRCPY_ADB_PATH"))
+                       << g_adbPath
+                       << QCoreApplication::applicationDirPath() + "/adb";
+
+        for (const QString &path : potentialPaths) {
+            QFileInfo fileInfo(path);
+            if (!path.isEmpty() && fileInfo.isFile()) {
+                s_adbPath = path;
+                break;
+            }
         }
-        fileInfo = s_adbPath;
-        if (s_adbPath.isEmpty() || !fileInfo.isFile()) {
-            s_adbPath = QCoreApplication::applicationDirPath() + "/adb";
+
+        if (s_adbPath.isEmpty()) {
+            // 如果所有路径都不满足条件，可以选择抛出异常或设置默认值
+            qWarning() << "ADB路径未找到";
+        } else {
+            qInfo("adb path: %s", QDir(s_adbPath).absolutePath().toUtf8().data());
         }
-        qInfo("adb path: %s", QDir(s_adbPath).absolutePath().toUtf8().data());
     }
     return s_adbPath;
 }
@@ -116,17 +130,16 @@ QStringList AdbProcessImpl::getDevicesSerialFromStdOut()
 {
     // get devices serial by adb devices
     QStringList serials;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-    QStringList devicesInfoList = m_standardOutput.split(QRegExp("\r\n|\n"), Qt::SkipEmptyParts);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QRegExp lineExp("\r\n|\n");
+    QRegExp tExp("\t");
 #else
-    QStringList devicesInfoList = m_standardOutput.split(QRegExp("\r\n|\n"), QString::SkipEmptyParts);
+    QRegularExpression lineExp("\r\n|\n");
+    QRegularExpression tExp("\t");
 #endif
+    QStringList devicesInfoList = m_standardOutput.split(lineExp);
     for (QString deviceInfo : devicesInfoList) {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-        QStringList deviceInfos = deviceInfo.split(QRegExp("\t"), Qt::SkipEmptyParts);
-#else
-        QStringList deviceInfos = deviceInfo.split(QRegExp("\t"), QString::SkipEmptyParts);
-#endif
+        QStringList deviceInfos = deviceInfo.split(tExp);
         if (2 == deviceInfos.count() && 0 == deviceInfos[1].compare("device")) {
             serials << deviceInfos[0];
         }
@@ -137,18 +150,18 @@ QStringList AdbProcessImpl::getDevicesSerialFromStdOut()
 QString AdbProcessImpl::getDeviceIPFromStdOut()
 {
     QString ip = "";
-#if 0
-    QString strIPExp = "inet [\\d.]*";
+    QString strIPExp = "inet addr:[\\d.]*";
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     QRegExp ipRegExp(strIPExp, Qt::CaseInsensitive);
     if (ipRegExp.indexIn(m_standardOutput) != -1) {
         ip = ipRegExp.cap(0);
-        ip = ip.right(ip.size() - 5);
+        ip = ip.right(ip.size() - 10);
     }
 #else
-    QString strIPExp = "inet addr:[\\d.]*";
-    QRegExp ipRegExp(strIPExp, Qt::CaseInsensitive);
-    if (ipRegExp.indexIn(m_standardOutput) != -1) {
-        ip = ipRegExp.cap(0);
+    QRegularExpression ipRegExp(strIPExp, QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch match = ipRegExp.match(m_standardOutput);
+    if (match.hasMatch()) {
+        ip = match.captured(0);
         ip = ip.right(ip.size() - 10);
     }
 #endif
@@ -161,11 +174,20 @@ QString AdbProcessImpl::getDeviceIPByIpFromStdOut()
     QString ip = "";
 
     QString strIPExp = "wlan0    inet [\\d.]*";
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     QRegExp ipRegExp(strIPExp, Qt::CaseInsensitive);
     if (ipRegExp.indexIn(m_standardOutput) != -1) {
         ip = ipRegExp.cap(0);
         ip = ip.right(ip.size() - 14);
     }
+#else
+    QRegularExpression ipRegExp(strIPExp, QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch match = ipRegExp.match(m_standardOutput);
+    if (match.hasMatch()) {
+        ip = match.captured(0);
+        ip = ip.right(ip.size() - 14);
+    }
+#endif
     qDebug() << "get ip: " << ip;
     return ip;
 }
