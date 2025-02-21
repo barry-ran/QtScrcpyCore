@@ -30,9 +30,12 @@ const QString &AdbProcessImpl::getAdbPath()
 {
     if (s_adbPath.isEmpty()) {
         QStringList potentialPaths;
-        potentialPaths << QString::fromLocal8Bit(qgetenv("QTSCRCPY_ADB_PATH"))
-                       << g_adbPath
+        potentialPaths << QString::fromLocal8Bit(qgetenv("QTSCRCPY_ADB_PATH")) << g_adbPath
+#ifdef Q_OS_WIN32
+                       << QCoreApplication::applicationDirPath() + "/adb.exe";
+#else
                        << QCoreApplication::applicationDirPath() + "/adb";
+#endif
 
         for (const QString &path : potentialPaths) {
             QFileInfo fileInfo(path);
