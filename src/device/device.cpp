@@ -50,6 +50,11 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
             fileName.replace(".", "_");
             fileName += ("." + m_params.recordFileFormat);
             QDir dir(fileDir);
+            if (!dir.exists()) {
+                if (!dir.mkpath(fileDir)) {
+                    qCritical() << QString("Failed to create the save folder: %1").arg(fileDir);
+                }
+            }
             absFilePath = dir.absoluteFilePath(fileName);
         }
         m_recorder = new Recorder(absFilePath, this);
