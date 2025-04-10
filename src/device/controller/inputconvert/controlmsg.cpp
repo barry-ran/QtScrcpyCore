@@ -76,6 +76,7 @@ void ControlMsg::setGetClipboardMsgData(ControlMsg::GetClipboardCopyKey copyKey)
 void ControlMsg::setSetClipboardMsgData(QString &text, bool paste)
 {
     if (text.isEmpty()) {
+        m_data.setClipboard.text = Q_NULLPTR;
         return;
     }
     if (CONTROL_MSG_CLIPBOARD_TEXT_MAX_LENGTH < text.length()) {
@@ -172,8 +173,13 @@ QByteArray ControlMsg::serializeData()
     case CMT_SET_CLIPBOARD:
         BufferUtil::write64(buffer, m_data.setClipboard.sequence);
         buffer.putChar(!!m_data.setClipboard.paste);
-        BufferUtil::write32(buffer, static_cast<quint32>(strlen(m_data.setClipboard.text)));
-        buffer.write(m_data.setClipboard.text, strlen(m_data.setClipboard.text));
+        if (m_data.setClipboard.text != Q_NULLPTR) {
+            BufferUtil::write32(buffer, static_cast<quint32>(strlen(m_data.setClipboard.text)));
+            buffer.write(m_data.setClipboard.text, strlen(m_data.setClipboard.text));
+        } else {
+            BufferUtil::write32(buffer, 0);
+            buffer.write(m_data.setClipboard.text, 0);
+        }
         break;
     case CMT_SET_DISPLAY_POWER:
         buffer.putChar(m_data.setDisplayPower.on);
