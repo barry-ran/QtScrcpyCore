@@ -40,7 +40,7 @@ public:
         int captureOrientationLock = 0; // 是否锁定采集方向 0不锁定 1锁定指定方向 2锁定原始方向
         int captureOrientation = 0;     // 采集方向 0 90 180 270
         int stayAwake = false;         // 是否保持唤醒
-        QString serverVersion = "3.1"; // server版本
+        QString serverVersion = "3.2"; // server版本
         QString logLevel = "debug";  // log级别 verbose/debug/info/warn/error
         // 编码选项 ""表示默认
         // 例如 CodecOptions="profile=1,level=2"
