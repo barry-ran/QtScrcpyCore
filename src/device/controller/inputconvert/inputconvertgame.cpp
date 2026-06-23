@@ -5,6 +5,10 @@
 #include <QTime>
 #include <QRandomGenerator>
 
+#ifdef Q_OS_MACOS
+#include <CoreGraphics/CoreGraphics.h>
+#endif
+
 #include "inputconvertgame.h"
 
 #define CURSOR_POS_CHECK 50
@@ -656,7 +660,20 @@ void InputConvertGame::moveCursorTo(const QMouseEvent *from, const QPoint &local
 #endif
     globalPos -= posOffset;
     //qDebug()<<"move cursor to "<<globalPos<<" offset "<<posOffset;
+#ifdef Q_OS_MACOS
+    // On macOS, QCursor::setPos() posts a synthetic mouse-moved event (CGEventPost)
+    // and does NOT re-associate the hardware mouse with the on-screen cursor, so the
+    // warp does not "stick": the next hardware delta snaps the cursor back. That makes
+    // mouseMoveMap re-centering a no-op, and the camera can no longer pan past the edge.
+    // CGWarpMouseCursorPosition performs a real warp, and
+    // CGAssociateMouseAndMouseCursorPosition(true) immediately restores the
+    // mouse<->cursor association so subsequent hardware deltas keep flowing. This
+    // mirrors the approach already used in util/mousetap/cocoamousetap.mm.
+    CGWarpMouseCursorPosition(CGPointMake(globalPos.x(), globalPos.y()));
+    CGAssociateMouseAndMouseCursorPosition(true);
+#else
     QCursor::setPos(globalPos);
+#endif
 }
 
 void InputConvertGame::mouseMoveStartTouch(const QMouseEvent *from)
