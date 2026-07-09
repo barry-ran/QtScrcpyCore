@@ -39,6 +39,7 @@ struct DeviceParams {
     bool display = true;              // 是否显示画面（或者仅仅后台录制）
     bool renderExpiredFrames = false; // 是否渲染延迟视频帧
     QString gameScript = "";          // 游戏映射脚本
+    int decodeMode = 0;               // 0=FFmpeg OpenGL (默认), 1=VideoToolbox Metal (Apple Silicon)
 };
     
 }
