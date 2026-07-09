@@ -26,6 +26,12 @@ public:
         Q_UNUSED(linesizeU);
         Q_UNUSED(linesizeV);
     }
+    // VideoToolbox Metal 路径帧回调（仅 macOS arm64）
+    virtual void onFrameMetal(void* cvPixelBuffer, int width, int height) {
+        Q_UNUSED(cvPixelBuffer);
+        Q_UNUSED(width);
+        Q_UNUSED(height);
+    }
     virtual void updateFPS(quint32 fps) { Q_UNUSED(fps); }
     virtual void grabCursor(bool grab) {Q_UNUSED(grab);}
 

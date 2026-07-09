@@ -26,6 +26,14 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
                 item->onFrame(width, height, dataY, dataU, dataV, linesizeY, linesizeU, linesizeV);
             }
         }, this);
+
+        // VT Metal 路径帧回调（仅 macOS arm64 生效）
+        m_decoder->onMetalFrame = [this](void* cvPixelBuffer, int width, int height) {
+            for (const auto& item : m_deviceObservers) {
+                item->onFrameMetal(cvPixelBuffer, width, height);
+            }
+        };
+
         m_fileHandler = new FileHandler(this);
         m_controller = new Controller([this](const QByteArray& buffer) -> qint64 {
             if (!m_server || !m_server->getControlSocket()) {
@@ -189,7 +197,7 @@ void Device::initSignals()
 
                 // init decoder
                 if (m_decoder) {
-                    m_decoder->open();
+                    m_decoder->open(m_params.decodeMode);
                 }
 
                 // init stream

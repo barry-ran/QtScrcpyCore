@@ -107,6 +107,7 @@ set(QSC_DEVICE_SOURCES
     src/device/decoder/fpscounter.cpp
     src/device/decoder/videobuffer.h
     src/device/decoder/videobuffer.cpp
+    src/device/decoder/vtdecoder.h
     src/device/filehandler/filehandler.h
     src/device/filehandler/filehandler.cpp
     src/device/recorder/recorder.h
@@ -198,6 +199,11 @@ endif()
 
 # MacOS
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # VideoToolbox decoder (macOS, Objective-C++)
+    target_sources(${QSC_PROJECT_NAME} PRIVATE
+        src/device/decoder/vtdecoder.mm
+    )
+
     # ffmpeg
     # include
     target_include_directories(${QSC_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/ffmpeg/include)
@@ -209,6 +215,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         avcodec.58
         avutil.56
         swscale.5
+    )
+
+    # VideoToolbox + CoreMedia + CoreVideo (Apple Silicon H.264 硬解)
+    target_link_libraries(${QSC_PROJECT_NAME} PRIVATE
+        "-framework VideoToolbox"
+        "-framework CoreMedia"
+        "-framework CoreVideo"
     )
 
     # copy bundle file    
