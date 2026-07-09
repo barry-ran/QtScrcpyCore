@@ -99,18 +99,27 @@ bool Decoder::pushVT(const AVPacket *packet)
         return false;
     }
 
-    // 互斥更新最新帧
+    // 互斥更新最新帧 — 所有权转移
     {
         QMutexLocker lock(&m_pixelBufferMutex);
-        if (m_lastPixelBuffer) CVPixelBufferRelease((CVPixelBufferRef)m_lastPixelBuffer);
-        CVPixelBufferRetain(pb);
+        if (m_lastPixelBuffer) {
+            CVPixelBufferRelease((CVPixelBufferRef)m_lastPixelBuffer);
+            m_lastPixelBuffer = nullptr;
+        }
         m_lastPixelBuffer = pb;
         m_lastFrameWidth = w;
         m_lastFrameHeight = h;
     }
-    CVPixelBufferRelease(pb);
 
-    emit newFrame();
+    // 非重复发出 newFrame 信号：仅当主线程空闲时才发
+    // VT 硬件解码极快，不跳过帧，保持 GOP 连续避免马赛克
+    if (m_frameInFlight.loadAcquire() == 0) {
+        m_frameInFlight.storeRelease(1);
+        emit newFrame();
+    }
+    // 当 m_frameInFlight > 0 时，主线程还在渲染上一帧。
+    // 不发信号—主线程完成渲染后会检查 m_lastPixelBuffer，
+    // pushVT 下一次调用会覆盖 m_lastPixelBuffer（在互斥锁内释放旧帧）。
     return true;
 #else
     Q_UNUSED(packet);
@@ -151,8 +160,13 @@ bool Decoder::push(const AVPacket *packet)
 void Decoder::peekFrame(std::function<void(int,int,uint8_t*)> onFrame)
 {
 #ifdef Q_OS_MACOS
-    if (m_decodeMode == MODE_VT_METAL && m_lastPixelBuffer) {
+    if (m_decodeMode == MODE_VT_METAL) {
+        QMutexLocker lock(&m_pixelBufferMutex);
         CVPixelBufferRef pb = (CVPixelBufferRef)m_lastPixelBuffer;
+        if (!pb) return;
+        CVPixelBufferRetain(pb);
+        lock.unlock();
+
         CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
 
         int w = (int)CVPixelBufferGetWidth(pb);
@@ -182,6 +196,7 @@ void Decoder::peekFrame(std::function<void(int,int,uint8_t*)> onFrame)
             }
         }
         CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+        CVPixelBufferRelease(pb);
 
         onFrame(w, h, rgb);
         delete[] rgb;
@@ -203,17 +218,32 @@ void Decoder::pushFrame()
 void Decoder::onNewFrame()
 {
     if (m_decodeMode == MODE_VT_METAL) {
-        if (!onMetalFrame) return;
+        if (!onMetalFrame) {
+            m_frameInFlight.storeRelease(0);
+            return;
+        }
 
+        // 取走 pixel buffer 所有权
         QMutexLocker lock(&m_pixelBufferMutex);
         void *pb = m_lastPixelBuffer;
-        if (!pb) return;
-        CVPixelBufferRetain((CVPixelBufferRef)pb);
+        m_lastPixelBuffer = nullptr;  // 所有权转移
         int w = m_lastFrameWidth, h = m_lastFrameHeight;
         lock.unlock();
 
+        if (!pb) {
+            m_frameInFlight.storeRelease(0);
+            return;
+        }
+
+        // 渲染接管生命周期：renderFrame 内部 Retain 给 GPU handler
         onMetalFrame(pb, w, h);
+
+        // 释放 VT callback 持有的那一次 Retain
+        // （如果 renderFrame Retain 了，GPU handler 会最终释放）
         CVPixelBufferRelease((CVPixelBufferRef)pb);
+
+        // 背压清除：允许 pushVT 推送下一帧
+        m_frameInFlight.storeRelease(0);
         return;
     }
 

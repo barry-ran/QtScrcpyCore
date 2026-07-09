@@ -46,7 +46,12 @@ static void vtDecoderCallback(void *decompressionOutputRefCon,
     Q_UNUSED(infoFlags);
 
     auto *impl = static_cast<VTDecoder::Impl *>(decompressionOutputRefCon);
-    impl->outputPixelBuffer = nullptr;
+
+    // 关键：先清理上一个未被消费的 outputPixelBuffer（可能由之前超时导致）
+    if (impl->outputPixelBuffer) {
+        CVPixelBufferRelease(impl->outputPixelBuffer);
+        impl->outputPixelBuffer = nullptr;
+    }
 
     if (status == noErr && imageBuffer) {
         CVPixelBufferRetain(imageBuffer);
@@ -172,20 +177,42 @@ static bool doDecode(VTDecoder::Impl *d, CMBlockBufferRef bb,
     CFRelease(sb);
 
     if (st != noErr) {
-        if (st == -12909) return false;
+        if (st == -12909) {
+            // bad data — 清理可能被回调设置的 outputPixelBuffer
+            if (d->outputPixelBuffer) {
+                CVPixelBufferRelease(d->outputPixelBuffer);
+                d->outputPixelBuffer = nullptr;
+            }
+        }
         if (st == kVTInvalidSessionErr) {
             qWarning("VTDecoder: invalid session");
         }
         return false;
     }
 
+    // 等待异步回调完成，500ms 超时
     if (dispatch_semaphore_wait(d->semaphore,
             dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC)) != 0) {
-        qWarning("VTDecoder: decode timeout");
-        return false;
+        // 超时：再试一次非阻塞 wait 捕获刚触发的回调
+        if (dispatch_semaphore_wait(d->semaphore, DISPATCH_TIME_NOW) == 0) {
+            // 回调在我们返回前完成（慢但成功）
+            // 继续下面的 outputPixelBuffer 检查逻辑
+        } else {
+            // 确认超时 — 回调从未触发
+            // 注意：回调可能稍后触发，vtDecoderCallback 会清理残留 buffer
+            qWarning("VTDecoder: decode timeout (no callback in 500ms)");
+            return false;
+        }
     }
 
-    if (d->decodeStatus != noErr || !d->outputPixelBuffer) return false;
+    // 关键：在错误路径之前消费输出
+    if (d->decodeStatus != noErr || !d->outputPixelBuffer) {
+        if (d->outputPixelBuffer) {
+            CVPixelBufferRelease(d->outputPixelBuffer);
+            d->outputPixelBuffer = nullptr;
+        }
+        return false;
+    }
 
     outPB = d->outputPixelBuffer;
     outW = (int)CVPixelBufferGetWidth(outPB);
@@ -216,9 +243,15 @@ bool VTDecoder::open() { return true; }
 
 void VTDecoder::close()
 {
+    // 先失效 session — VT 保证后续不再触发回调
     if (d->session) { VTDecompressionSessionInvalidate(d->session); CFRelease(d->session); d->session = nullptr; }
     if (d->formatDesc) { CFRelease(d->formatDesc); d->formatDesc = nullptr; }
+
+    // dispatch_semaphore 的 release 必须在 VT session 失效后短暂延迟，
+    // 确保任何仍在执行的 callback 已完成 signal。
+    // VTDecompressionSessionInvalidate 是同步的，所以此处的 signal 安全。
     if (d->semaphore) { dispatch_release(d->semaphore); d->semaphore = nullptr; }
+
     if (d->outputPixelBuffer) { CVPixelBufferRelease(d->outputPixelBuffer); d->outputPixelBuffer = nullptr; }
     d->cachedSPS.clear();
     d->cachedPPS.clear();

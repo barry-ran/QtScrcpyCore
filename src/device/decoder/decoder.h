@@ -2,6 +2,7 @@
 #define DECODER_H
 #include <QObject>
 #include <QMutex>
+#include <QAtomicInt>
 
 extern "C"
 {
@@ -61,6 +62,7 @@ private:
     void *m_lastPixelBuffer = nullptr;
     int m_lastFrameWidth = 0;
     int m_lastFrameHeight = 0;
+    QAtomicInt m_frameInFlight{0};  // 背压：主线程渲染中的帧数
 };
 
 #endif // DECODER_H
