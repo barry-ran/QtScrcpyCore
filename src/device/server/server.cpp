@@ -177,10 +177,10 @@ bool Server::execute()
     // https://github.com/Genymobile/scrcpy/commit/080a4ee3654a9b7e96c8ffe37474b5c21c02852a
     // <https://d.android.com/reference/android/media/MediaFormat>
     if (!m_params.codecOptions.isEmpty()) {
-        args << QString("codec_options=%1").arg(m_params.codecOptions);
+        args << QString("video_codec_options=%1").arg(m_params.codecOptions);
     }
     if (!m_params.codecName.isEmpty()) {
-        args << QString("encoder_name=%1").arg(m_params.codecName);
+        args << QString("video_encoder=%1").arg(m_params.codecName);
     }
     args << "audio=false";
     // 服务端默认-1，可不传
