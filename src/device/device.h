@@ -14,7 +14,7 @@ class QKeyEvent;
 class Recorder;
 class Server;
 class VideoBuffer;
-class Decoder;
+class IDecoder;
 class FileHandler;
 class Demuxer;
 class VideoForm;
@@ -81,7 +81,7 @@ private:
     // server relevant
     QPointer<Server> m_server;
     bool m_serverStartSuccess = false;
-    QPointer<Decoder> m_decoder;
+    QPointer<IDecoder> m_decoder;
     QPointer<Controller> m_controller;
     QPointer<FileHandler> m_fileHandler;
     QPointer<Demuxer> m_stream;

@@ -1,6 +1,12 @@
 #pragma once
 #include <QString>
 
+/// 解码模式枚举
+enum DecodeMode {
+    MODE_FFMPEG = 0,
+    MODE_VT_METAL = 1
+};
+
 namespace qsc {
 
 struct DeviceParams {
