@@ -71,6 +71,7 @@ set(QSC_INCLUDE_SOURCES
     include/QtScrcpyCore.h
     include/QtScrcpyCoreDef.h
     include/adbprocess.h
+    include/IDecoder.h
 )
 source_group(include FILES ${QSC_INCLUDE_SOURCES})
 

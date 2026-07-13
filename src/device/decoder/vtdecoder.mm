@@ -196,16 +196,13 @@ static bool doDecode(VTDecoder::Impl *d, CMBlockBufferRef bb,
         // 超时：再试一次非阻塞 wait 捕获刚触发的回调
         if (dispatch_semaphore_wait(d->semaphore, DISPATCH_TIME_NOW) == 0) {
             // 回调在我们返回前完成（慢但成功）
-            // 继续下面的 outputPixelBuffer 检查逻辑
         } else {
-            // 确认超时 — 回调从未触发
-            // 注意：回调可能稍后触发，vtDecoderCallback 会清理残留 buffer
             qWarning("VTDecoder: decode timeout (no callback in 500ms)");
             return false;
         }
     }
 
-    // 关键：在错误路径之前消费输出
+    // 在错误路径之前消费输出
     if (d->decodeStatus != noErr || !d->outputPixelBuffer) {
         if (d->outputPixelBuffer) {
             CVPixelBufferRelease(d->outputPixelBuffer);
@@ -223,9 +220,12 @@ static bool doDecode(VTDecoder::Impl *d, CMBlockBufferRef bb,
 
 // ═══════════════════ Public API ═══════════════════
 
-VTDecoder::VTDecoder(QObject *parent) : QObject(parent), d(new Impl)
+VTDecoder::VTDecoder(QObject *parent)
+    : IDecoder(parent)
+    , d(new Impl)
 {
     d->fpsTimer.start();
+    connect(this, &VTDecoder::newFrame, this, &VTDecoder::onNewFrame, Qt::QueuedConnection);
 }
 
 VTDecoder::~VTDecoder() { close(); delete d; }
@@ -247,10 +247,13 @@ void VTDecoder::close()
     if (d->session) { VTDecompressionSessionInvalidate(d->session); CFRelease(d->session); d->session = nullptr; }
     if (d->formatDesc) { CFRelease(d->formatDesc); d->formatDesc = nullptr; }
 
-    // dispatch_semaphore 的 release 必须在 VT session 失效后短暂延迟，
-    // 确保任何仍在执行的 callback 已完成 signal。
-    // VTDecompressionSessionInvalidate 是同步的，所以此处的 signal 安全。
-    if (d->semaphore) { dispatch_release(d->semaphore); d->semaphore = nullptr; }
+    // Invalidate 之后 VT 不再触发 callback，向信号量发信号唤醒可能在
+    // decode() 中等待的 Demuxer 线程，消除 500ms 超时延迟。
+    if (d->semaphore) {
+        dispatch_semaphore_signal(d->semaphore);
+        dispatch_release(d->semaphore);
+        d->semaphore = nullptr;
+    }
 
     if (d->outputPixelBuffer) { CVPixelBufferRelease(d->outputPixelBuffer); d->outputPixelBuffer = nullptr; }
     d->cachedSPS.clear();
@@ -258,10 +261,124 @@ void VTDecoder::close()
     d->sessionCreated = false;
     d->lastWidth = d->lastHeight = 0;
     d->renderedFrames = 0;
+
+    // 清理背压残留
+    QMutexLocker lock(&m_pixelBufferMutex);
+    if (m_lastPixelBuffer) {
+        CVPixelBufferRelease((CVPixelBufferRef)m_lastPixelBuffer);
+        m_lastPixelBuffer = nullptr;
+    }
+    m_lastFrameWidth = m_lastFrameHeight = 0;
+}
+
+bool VTDecoder::push(const AVPacket *packet)
+{
+    if (!packet || !packet->data || packet->size <= 0) return false;
+
+    void *pb = nullptr;
+    int w = 0, h = 0;
+
+    if (!decode(packet->data, packet->size, packet->pts, pb, w, h) || !pb) {
+        return false;
+    }
+
+    // 互斥更新最新帧 — 所有权转移
+    {
+        QMutexLocker lock(&m_pixelBufferMutex);
+        if (m_lastPixelBuffer) {
+            CVPixelBufferRelease((CVPixelBufferRef)m_lastPixelBuffer);
+            m_lastPixelBuffer = nullptr;
+        }
+        m_lastPixelBuffer = pb;
+        m_lastFrameWidth = w;
+        m_lastFrameHeight = h;
+    }
+
+    // 背压：仅主线程空闲时才发信号，否则保留最新帧。
+    // 解码线程持续用最新帧覆盖 m_lastPixelBuffer（旧帧释放），
+    // 主线程完成渲染后将 m_frameInFlight 重置为 0，下一个 push 再 emit。
+    // 这是"仅最新帧"策略 — 避免排队积压，保持低延迟。
+    if (m_frameInFlight.loadAcquire() == 0) {
+        m_frameInFlight.storeRelease(1);
+        emit newFrame();
+    }
+    return true;
+}
+
+void VTDecoder::peekFrame(std::function<void(int,int,uint8_t*)> onFrame)
+{
+    QMutexLocker lock(&m_pixelBufferMutex);
+    CVPixelBufferRef pb = (CVPixelBufferRef)m_lastPixelBuffer;
+    if (!pb) return;
+    CVPixelBufferRetain(pb);
+    lock.unlock();
+
+    CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+
+    int w = (int)CVPixelBufferGetWidth(pb);
+    int h = (int)CVPixelBufferGetHeight(pb);
+
+    uint8_t *y  = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(pb, 0);
+    uint8_t *uv = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(pb, 1);
+    size_t ys = CVPixelBufferGetBytesPerRowOfPlane(pb, 0);
+    size_t uvs = CVPixelBufferGetBytesPerRowOfPlane(pb, 1);
+
+    uint8_t *rgb = new uint8_t[w * h * 4];
+    for (int row = 0; row < h; row++) {
+        for (int col = 0; col < w; col++) {
+            int yy  = y[row * ys + col];
+            int uu  = uv[(row>>1) * uvs + (col & ~1)];
+            int vv  = uv[(row>>1) * uvs + (col & ~1) + 1];
+
+            float yf = (yy - 16) / 219.0f;
+            float uf = (uu - 128) / 224.0f;
+            float vf = (vv - 128) / 224.0f;
+
+            int idx = (row * w + col) * 4;
+            rgb[idx+0] = (uint8_t)qBound(0, (int)(255*(yf + 1.7927f*vf)), 255);
+            rgb[idx+1] = (uint8_t)qBound(0, (int)(255*(yf - 0.2132f*uf - 0.5329f*vf)), 255);
+            rgb[idx+2] = (uint8_t)qBound(0, (int)(255*(yf + 2.1124f*uf)), 255);
+            rgb[idx+3] = 255;
+        }
+    }
+    CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+    CVPixelBufferRelease(pb);
+
+    onFrame(w, h, rgb);
+    delete[] rgb;
+}
+
+void VTDecoder::onNewFrame()
+{
+    if (!onFrame) {
+        m_frameInFlight.storeRelease(0);
+        return;
+    }
+
+    // 取走 pixel buffer 所有权
+    QMutexLocker lock(&m_pixelBufferMutex);
+    void *pb = m_lastPixelBuffer;
+    m_lastPixelBuffer = nullptr;  // 所有权转移
+    int w = m_lastFrameWidth, h = m_lastFrameHeight;
+    lock.unlock();
+
+    if (!pb) {
+        m_frameInFlight.storeRelease(0);
+        return;
+    }
+
+    // 渲染接管生命周期
+    onFrame(pb, w, h);
+
+    // 释放 VT callback 持有的那一次 Retain
+    CVPixelBufferRelease((CVPixelBufferRef)pb);
+
+    // 背压清除：允许 push 推送下一帧
+    m_frameInFlight.storeRelease(0);
 }
 
 bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
-                       CVPixelBufferRef &outPixelBuffer, int &outWidth, int &outHeight)
+                       void *&outPixelBuffer, int &outWidth, int &outHeight)
 {
     if (!data || size <= 0) return false;
     outPixelBuffer = nullptr;
@@ -292,7 +409,6 @@ bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
             free(avccData); return false;
         }
 
-        // 创建新 formatDesc（可能包含新分辨率）
         CMVideoFormatDescriptionRef newFD = nullptr;
         if (!createFormatDesc(spsData, spsSize, ppsData, ppsSize, newFD)) {
             free(avccData); return false;
@@ -302,7 +418,6 @@ bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
         int newW = dims.width, newH = dims.height;
 
         if (!d->sessionCreated) {
-            // 首次初始化
             d->formatDesc = newFD;
             d->lastWidth = newW; d->lastHeight = newH;
             m_currentWidth = newW; m_currentHeight = newH;
@@ -314,7 +429,6 @@ bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
             d->sessionCreated = true;
             qInfo("VTDecoder: session created %dx%d", newW, newH);
         } else if (newW != d->lastWidth || newH != d->lastHeight) {
-            // 分辨率变化
             qInfo("VTDecoder: resolution change %dx%d → %dx%d",
                   d->lastWidth, d->lastHeight, newW, newH);
 
@@ -333,9 +447,22 @@ bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
                 CFRelease(newFD); free(avccData); return false;
             }
         } else {
-            // SPS 变了但分辨率不变（如 profile 变化），仅更新 formatDesc 引用
-            if (d->formatDesc) CFRelease(d->formatDesc);
+            // SPS 变化但分辨率不变（例如 profile/level/VUI 参数变化）
+            // 仍需重建 VT 会话以确保解码参数匹配
+            qInfo("VTDecoder: SPS changed (same resolution %dx%d), recreating session",
+                  newW, newH);
+            if (d->session) {
+                VTDecompressionSessionInvalidate(d->session);
+                CFRelease(d->session); d->session = nullptr;
+            }
+            if (d->formatDesc) {
+                CFRelease(d->formatDesc);
+            }
             d->formatDesc = newFD;
+
+            if (!createVTSession(d->formatDesc, d)) {
+                CFRelease(newFD); free(avccData); return false;
+            }
         }
     }
 
@@ -373,10 +500,14 @@ bool VTDecoder::decode(const unsigned char *data, int size, qint64 pts,
 }
 
 #else
-VTDecoder::VTDecoder(QObject *parent) : QObject(parent), d(nullptr) {}
+// 非 macOS 平台的桩实现
+VTDecoder::VTDecoder(QObject *parent) : IDecoder(parent), d(nullptr) {}
 VTDecoder::~VTDecoder() {}
 bool VTDecoder::isAvailable() { return false; }
 bool VTDecoder::open() { return false; }
 void VTDecoder::close() {}
-bool VTDecoder::decode(const unsigned char *, int, qint64, CVPixelBufferRef &o, int &w, int &h) { o = nullptr; return false; }
+bool VTDecoder::push(const AVPacket *) { return false; }
+void VTDecoder::peekFrame(std::function<void(int,int,uint8_t*)>) {}
+bool VTDecoder::decode(const unsigned char *, int, qint64, void *&o, int &w, int &h) { o = nullptr; return false; }
+void VTDecoder::onNewFrame() {}
 #endif

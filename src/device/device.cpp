@@ -5,6 +5,9 @@
 #include "controller.h"
 #include "devicemsg.h"
 #include "decoder.h"
+#ifdef Q_OS_MACOS
+#include "vtdecoder.h"
+#endif
 #include "device.h"
 #include "filehandler.h"
 #include "recorder.h"
@@ -21,18 +24,25 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
     }
 
     if (params.display) {
-        m_decoder = new Decoder([this](int width, int height, uint8_t* dataY, uint8_t* dataU, uint8_t* dataV, int linesizeY, int linesizeU, int linesizeV) {
-            for (const auto& item : m_deviceObservers) {
-                item->onFrame(width, height, dataY, dataU, dataV, linesizeY, linesizeU, linesizeV);
-            }
-        }, this);
-
-        // VT Metal 路径帧回调（仅 macOS arm64 生效）
-        m_decoder->onMetalFrame = [this](void* cvPixelBuffer, int width, int height) {
-            for (const auto& item : m_deviceObservers) {
-                item->onFrameMetal(cvPixelBuffer, width, height);
-            }
-        };
+        // 根据 decodeMode 工厂创建解码器
+#ifdef Q_OS_MACOS
+        if (m_params.decodeMode == MODE_VT_METAL && VTDecoder::isAvailable()) {
+            auto* vt = new VTDecoder(this);
+            vt->onFrame = [this](void* cvPixelBuffer, int width, int height) {
+                for (const auto& item : m_deviceObservers) {
+                    item->onFrameMetal(cvPixelBuffer, width, height);
+                }
+            };
+            m_decoder = vt;
+        } else
+#endif
+        {
+            m_decoder = new Decoder([this](int width, int height, uint8_t* dataY, uint8_t* dataU, uint8_t* dataV, int linesizeY, int linesizeU, int linesizeV) {
+                for (const auto& item : m_deviceObservers) {
+                    item->onFrame(width, height, dataY, dataU, dataV, linesizeY, linesizeU, linesizeV);
+                }
+            }, this);
+        }
 
         m_fileHandler = new FileHandler(this);
         m_controller = new Controller([this](const QByteArray& buffer) -> qint64 {
@@ -197,7 +207,7 @@ void Device::initSignals()
 
                 // init decoder
                 if (m_decoder) {
-                    m_decoder->open(m_params.decodeMode);
+                    m_decoder->open();
                 }
 
                 // init stream
@@ -260,7 +270,7 @@ void Device::initSignals()
     }
 
     if (m_decoder) {
-        connect(m_decoder, &Decoder::updateFPS, this, [this](quint32 fps) {
+        connect(m_decoder, &IDecoder::updateFPS, this, [this](quint32 fps) {
             for (const auto& item : m_deviceObservers) {
                 item->updateFPS(fps);
             }
