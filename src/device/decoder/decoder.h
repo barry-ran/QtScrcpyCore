@@ -1,18 +1,17 @@
 #ifndef DECODER_H
 #define DECODER_H
 #include <QObject>
-#include <functional>
 
 extern "C"
 {
 #include "libavcodec/avcodec.h"
 }
 
+#include <functional>
+
 #include "IDecoder.h"
 
 class VideoBuffer;
-
-/// FFmpeg 软件解码器，实现 IDecoder 接口
 class Decoder : public IDecoder
 {
     Q_OBJECT
@@ -34,11 +33,11 @@ signals:
 private:
     void pushFrame();
 
-    // FFmpeg 软解
+private:
     VideoBuffer *m_vb = Q_NULLPTR;
     AVCodecContext *m_codecCtx = Q_NULLPTR;
     bool m_isCodecCtxOpen = false;
-    std::function<void(int,int,uint8_t*,uint8_t*,uint8_t*,int,int,int)> m_onFrame = Q_NULLPTR;
+    std::function<void(int, int, uint8_t*, uint8_t*, uint8_t*, int, int, int)> m_onFrame = Q_NULLPTR;
 };
 
 #endif // DECODER_H
