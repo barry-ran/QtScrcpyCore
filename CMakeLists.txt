@@ -108,7 +108,6 @@ set(QSC_DEVICE_SOURCES
     src/device/decoder/fpscounter.cpp
     src/device/decoder/videobuffer.h
     src/device/decoder/videobuffer.cpp
-    src/device/decoder/vtdecoder.h
     src/device/filehandler/filehandler.h
     src/device/filehandler/filehandler.cpp
     src/device/recorder/recorder.h
@@ -203,6 +202,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # VideoToolbox decoder (macOS, Objective-C++)
     target_sources(${QSC_PROJECT_NAME} PRIVATE
         src/device/decoder/vtdecoder.mm
+        src/device/decoder/vtdecoder.h
     )
 
     # ffmpeg
