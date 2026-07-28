@@ -30,6 +30,7 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
         useVT = (m_params.decodeMode == MODE_VT_METAL && VTDecoder::isAvailable());
 #endif
         if (useVT) {
+#ifdef Q_OS_MACOS
             auto* vt = new VTDecoder(this);
             vt->onFrame = [this](void* cvPixelBuffer, int width, int height) {
                 for (const auto& item : m_deviceObservers) {
@@ -37,6 +38,7 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
                 }
             };
             m_decoder = vt;
+#endif
         } else {
             m_decoder = new Decoder([this](int width, int height, uint8_t* dataY, uint8_t* dataU, uint8_t* dataV, int linesizeY, int linesizeU, int linesizeV) {
                 for (const auto& item : m_deviceObservers) {
