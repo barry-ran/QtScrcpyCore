@@ -16,6 +16,8 @@ public:
         DMT_NULL = -1,
         // 和服务端对应
         DMT_GET_CLIPBOARD = 0,
+        DMT_ACK_CLIPBOARD = 1,
+        DMT_UHID_OUTPUT = 2,
     };
     explicit DeviceMsg(QObject *parent = nullptr);
     virtual ~DeviceMsg();

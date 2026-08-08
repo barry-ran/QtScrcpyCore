@@ -231,6 +231,18 @@ bool Demuxer::recvPacket(AVPacket *packet)
 
     quint64 ptsFlags = bufferRead64be(header);
     if (ptsFlags & SC_PACKET_FLAG_SESSION) {
+        const QSize size(bufferRead32be(&header[4]), bufferRead32be(&header[8]));
+        if (size.isEmpty()) {
+            qCritical("Invalid video session size");
+            return false;
+        }
+
+        m_frameSize = size;
+        if (m_codecCtx) {
+            m_codecCtx->width = size.width();
+            m_codecCtx->height = size.height();
+        }
+        emit sessionChanged(size, header[3] & 0x01);
         return true;
     }
 

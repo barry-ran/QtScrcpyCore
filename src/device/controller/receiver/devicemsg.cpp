@@ -32,8 +32,8 @@ qint32 DeviceMsg::deserialize(QByteArray &byteArray)
     char c = 0;
     qint32 ret = 0;
 
-    if (len < 5) {
-        // at least type + empty string length
+    if (len < 1) {
+        // at least the message type
         return 0; // not available
     }
 
@@ -41,14 +41,19 @@ qint32 DeviceMsg::deserialize(QByteArray &byteArray)
     m_data.type = (DeviceMsgType)c;
     switch (m_data.type) {
     case DMT_GET_CLIPBOARD: {
+        if (len < 5) {
+            ret = 0; // not available
+            break;
+        }
+
         m_data.clipboardMsg.text = Q_NULLPTR;
-        quint16 clipboardLen = BufferUtil::read32(buf);
+        quint32 clipboardLen = BufferUtil::read32(buf);
         if (clipboardLen > len - 5) {
             ret = 0; // not available
             break;
         }
 
-        QByteArray text = buf.readAll();
+        QByteArray text = buf.read(clipboardLen);
         m_data.clipboardMsg.text = new char[text.length() + 1];
         memcpy(m_data.clipboardMsg.text, text.data(), text.length());
         m_data.clipboardMsg.text[text.length()] = '\0';
@@ -56,9 +61,31 @@ qint32 DeviceMsg::deserialize(QByteArray &byteArray)
         ret = 5 + clipboardLen;
         break;
     }
+    case DMT_ACK_CLIPBOARD:
+        if (len < 9) {
+            ret = 0; // not available
+            break;
+        }
+        ret = 9;
+        break;
+    case DMT_UHID_OUTPUT: {
+        if (len < 5) {
+            ret = 0; // not available
+            break;
+        }
+
+        BufferUtil::read16(buf); // id
+        quint16 dataLen = BufferUtil::read16(buf);
+        if (dataLen > len - 5) {
+            ret = 0; // not available
+            break;
+        }
+        ret = 5 + dataLen;
+        break;
+    }
     default:
         qWarning("Unsupported device msg type: %d", (int)m_data.type);
-        ret = -1; // error, we cannot recover
+        ret = -1; // error, the protocol does not expose a generic frame size
     }
 
     buf.close();

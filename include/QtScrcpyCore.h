@@ -33,6 +33,10 @@ public:
         Q_UNUSED(height);
     }
     virtual void updateFPS(quint32 fps) { Q_UNUSED(fps); }
+    virtual void onVideoSessionChanged(const QSize &size, bool clientResized) {
+        Q_UNUSED(size);
+        Q_UNUSED(clientResized);
+    }
     virtual void grabCursor(bool grab) {Q_UNUSED(grab);}
 
     virtual void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize) {

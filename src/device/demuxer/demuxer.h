@@ -30,6 +30,7 @@ public:
 
 signals:
     void onStreamStop();
+    void sessionChanged(const QSize &size, bool clientResized);
     void getFrame(AVPacket* packet);
     void getConfigFrame(AVPacket* packet);
 

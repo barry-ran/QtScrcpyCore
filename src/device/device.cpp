@@ -229,7 +229,13 @@ void Device::initSignals()
                         QByteArray byteArray = controlSocket->peek(controlSocket->bytesAvailable());
                         DeviceMsg deviceMsg;
                         qint32 consume = deviceMsg.deserialize(byteArray);
-                        if (0 >= consume) {
+                        if (consume == 0) {
+                            // Incomplete device message: wait for the next readyRead.
+                            break;
+                        }
+                        if (consume < 0) {
+                            qCritical("Unsupported device message; closing control socket");
+                            controlSocket->disconnectFromHost();
                             break;
                         }
                         controlSocket->read(consume);
@@ -252,6 +258,14 @@ void Device::initSignals()
     }
 
     if (m_stream) {
+        connect(m_stream, &Demuxer::sessionChanged, this, [this](const QSize &size, bool clientResized) {
+            qInfo() << "Video session changed to" << size << "client resized:" << clientResized;
+            for (const auto& item : m_deviceObservers) {
+                item->onVideoSessionChanged(size, clientResized);
+            }
+            // Match scrcpy: Recorder keeps the initial session dimensions for
+            // its single H.264 stream and does not restart on later sessions.
+        });
         connect(m_stream, &Demuxer::onStreamStop, this, [this]() {
             disconnectDevice();
             qDebug() << "stream thread stop";
