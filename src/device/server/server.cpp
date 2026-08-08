@@ -9,6 +9,7 @@
 #include "server.h"
 
 #define DEVICE_NAME_FIELD_LENGTH 64
+#define VIDEO_META_LENGTH 16
 #define SOCKET_NAME_PREFIX "scrcpy"
 #define MAX_CONNECT_COUNT 30
 #define MAX_RESTART_COUNT 1
@@ -337,8 +338,8 @@ bool Server::readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size
 {
     QElapsedTimer timer;
     timer.start();
-    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + 12];
-    while (videoSocket->bytesAvailable() <= (DEVICE_NAME_FIELD_LENGTH + 12)) {
+    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH];
+    while (videoSocket->bytesAvailable() < (DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH)) {
         videoSocket->waitForReadyRead(300);
         if (timer.elapsed() > 3000) {
             qInfo("readInfo timeout");
@@ -348,16 +349,16 @@ bool Server::readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size
     qDebug() << "readInfo wait time:" << timer.elapsed();
 
     qint64 len = videoSocket->read((char *)buf, sizeof(buf));
-    if (len < DEVICE_NAME_FIELD_LENGTH + 12) {
+    if (len < DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH) {
         qInfo("Could not retrieve device information");
         return false;
     }
     buf[DEVICE_NAME_FIELD_LENGTH - 1] = '\0'; // in case the client sends garbage
     deviceName = QString::fromUtf8((const char *)buf);
 
-    // 前4个字节是AVCodecID,当前只支持H264,所以先不解析
-    size.setWidth(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 4]));
-    size.setHeight(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 8]));
+    // scrcpy 4.x: codec id (4 bytes), then session metadata (flags, width, height).
+    size.setWidth(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 8]));
+    size.setHeight(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 12]));
 
     return true;
 }

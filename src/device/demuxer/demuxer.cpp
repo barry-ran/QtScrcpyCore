@@ -7,8 +7,9 @@
 
 #define HEADER_SIZE 12
 
-#define SC_PACKET_FLAG_CONFIG    (UINT64_C(1) << 63)
-#define SC_PACKET_FLAG_KEY_FRAME (UINT64_C(1) << 62)
+#define SC_PACKET_FLAG_SESSION (UINT64_C(1) << 63)
+#define SC_PACKET_FLAG_CONFIG (UINT64_C(1) << 62)
+#define SC_PACKET_FLAG_KEY_FRAME (UINT64_C(1) << 61)
 
 #define SC_PACKET_PTS_MASK (SC_PACKET_FLAG_KEY_FRAME - 1)
 
@@ -161,6 +162,11 @@ void Demuxer::run()
             break;
         }
 
+        if (!packet->size) {
+            // scrcpy 4.x session metadata was consumed
+            continue;
+        }
+
         ok = pushPacket(packet);
         av_packet_unref(packet);
         if (!ok) {
@@ -210,11 +216,12 @@ bool Demuxer::recvPacket(AVPacket *packet)
     // The most significant bits of the PTS are used for packet flags:
     //
     //  byte 7   byte 6   byte 5   byte 4   byte 3   byte 2   byte 1   byte 0
-    // CK...... ........ ........ ........ ........ ........ ........ ........
-    // ^^<------------------------------------------------------------------->
-    // ||                                PTS
-    // | `- config packet
-    //  `-- key frame
+    // SCK..... ........ ........ ........ ........ ........ ........ ........
+    // ^^^<------------------------------------------------------------------>
+    // |||                                PTS
+    // || `- config packet
+    // | `-- key frame
+    // `---- session metadata
 
     quint8 header[HEADER_SIZE];
     qint32 r = recvData(header, HEADER_SIZE);
@@ -223,6 +230,10 @@ bool Demuxer::recvPacket(AVPacket *packet)
     }
 
     quint64 ptsFlags = bufferRead64be(header);
+    if (ptsFlags & SC_PACKET_FLAG_SESSION) {
+        return true;
+    }
+
     quint32 len = bufferRead32be(&header[8]);
     Q_ASSERT(len);
 
