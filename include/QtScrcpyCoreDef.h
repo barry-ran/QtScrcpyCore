@@ -47,6 +47,15 @@ struct DeviceParams {
     // 例如 CodecName="OMX.qcom.video.encoder.avc"
     QString codecName = "";
     quint32 scid = -1; // 随机数，作为localsocket名字后缀，方便同时连接同一个设备多次
+    QString crop = "";                // WxH:X:Y，flex 模式下必须为空
+    qint32 displayId = 0;             // 已有 Android display，newDisplay 非空时忽略
+    QString newDisplay = "";          // WxH[/dpi]；空值表示不创建虚拟显示
+    bool flexDisplay = false;         // 仅 newDisplay + video + control
+    bool vdDestroyContent = true;
+    bool vdSystemDecorations = true;
+    QString displayImePolicy = "";    // local/fallback/hide，空值采用 server 默认值
+    bool keepActive = false;
+    QString startApp = "";            // 建连后交由 control 协议发送
 
     QString recordPath = "";          // 视频保存路径
     QString recordFileFormat = "mp4"; // 视频保存格式 mp4/mkv

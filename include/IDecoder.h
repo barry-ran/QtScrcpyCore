@@ -1,5 +1,6 @@
 #pragma once
 #include <QObject>
+#include <QSize>
 #include <functional>
 
 extern "C"
@@ -28,6 +29,9 @@ public:
 
     /// 截屏：获取当前帧的 RGB32 数据
     virtual void peekFrame(std::function<void(int width, int height, uint8_t* dataRGB32)> onFrame) = 0;
+    /// A new scrcpy video session starts after encoder/display reconfiguration.
+    virtual void onVideoSessionChanged(const QSize &size) { Q_UNUSED(size); }
+    virtual void setRenderExpiredFrames(bool enabled) { Q_UNUSED(enabled); }
 
 signals:
     void updateFPS(quint32 fps);

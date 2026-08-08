@@ -25,10 +25,11 @@ public slots:
     void onInstallApkRequest(const QString &serial, const QString &apkFile);
 
 protected:
-    void onAdbProcessResult(qsc::AdbProcess* adb, bool isApk, qsc::AdbProcess::ADB_EXEC_RESULT processResult);
+    void onAdbProcessResult(qsc::AdbProcess* adb, bool isApk, const QString &mediaDirectory, qsc::AdbProcess::ADB_EXEC_RESULT processResult);
 
 signals:
     void fileHandlerResult(FILE_HANDLER_RESULT processResult, bool isApk = false);
+    void mediaScanRequested(const QString &directory);
 };
 
 #endif // FILEHANDLER_H

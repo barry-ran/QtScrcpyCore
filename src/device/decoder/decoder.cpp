@@ -57,6 +57,21 @@ void Decoder::close()
     avcodec_free_context(&m_codecCtx);
 }
 
+void Decoder::onVideoSessionChanged(const QSize &size)
+{
+    Q_UNUSED(size);
+    if (m_codecCtx) {
+        avcodec_flush_buffers(m_codecCtx);
+    }
+}
+
+void Decoder::setRenderExpiredFrames(bool enabled)
+{
+    if (m_vb) {
+        m_vb->setRenderExpiredFrames(enabled);
+    }
+}
+
 bool Decoder::push(const AVPacket *packet)
 {
     if (!m_codecCtx || !m_vb) {

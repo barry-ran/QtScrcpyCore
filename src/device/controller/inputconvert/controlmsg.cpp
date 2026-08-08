@@ -15,11 +15,17 @@ ControlMsg::ControlMsg(ControlMsgType controlMsgType) : QScrcpyEvent(Control)
 ControlMsg::~ControlMsg()
 {
     if (CMT_SET_CLIPBOARD == m_data.type && Q_NULLPTR != m_data.setClipboard.text) {
-        delete m_data.setClipboard.text;
+        delete[] m_data.setClipboard.text;
         m_data.setClipboard.text = Q_NULLPTR;
     } else if (CMT_INJECT_TEXT == m_data.type && Q_NULLPTR != m_data.injectText.text) {
-        delete m_data.injectText.text;
+        delete[] m_data.injectText.text;
         m_data.injectText.text = Q_NULLPTR;
+    } else if (CMT_START_APP == m_data.type && Q_NULLPTR != m_data.startApp.name) {
+        delete[] m_data.startApp.name;
+        m_data.startApp.name = Q_NULLPTR;
+    } else if (CMT_SCAN_FILE == m_data.type && Q_NULLPTR != m_data.scanFile.path) {
+        delete[] m_data.scanFile.path;
+        m_data.scanFile.path = Q_NULLPTR;
     }
 }
 
@@ -104,6 +110,28 @@ void ControlMsg::setCameraTorchData(bool on)
 void ControlMsg::setBackOrScreenOnData(bool down)
 {
     m_data.backOrScreenOn.action = down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP;
+}
+
+void ControlMsg::setStartAppData(const QString &name)
+{
+    QByteArray utf8 = name.toUtf8().left(CONTROL_MSG_START_APP_MAX_LENGTH);
+    m_data.startApp.name = new char[utf8.size() + 1];
+    memcpy(m_data.startApp.name, utf8.constData(), utf8.size());
+    m_data.startApp.name[utf8.size()] = '\0';
+}
+
+void ControlMsg::setScanFileData(const QString &path)
+{
+    QByteArray utf8 = path.toUtf8().left(CONTROL_MSG_SCAN_FILE_PATH_MAX_LENGTH);
+    m_data.scanFile.path = new char[utf8.size() + 1];
+    memcpy(m_data.scanFile.path, utf8.constData(), utf8.size());
+    m_data.scanFile.path[utf8.size()] = '\0';
+}
+
+void ControlMsg::setResizeDisplayData(const QSize &size)
+{
+    m_data.resizeDisplay.width = static_cast<quint16>(qBound(1, size.width(), 0xffff));
+    m_data.resizeDisplay.height = static_cast<quint16>(qBound(1, size.height(), 0xffff));
 }
 
 void ControlMsg::writePosition(QBuffer &buffer, const QRect &value)
@@ -200,10 +228,30 @@ QByteArray ControlMsg::serializeData()
     case CMT_CAMERA_SET_TORCH:
         buffer.putChar(m_data.cameraTorch.on);
         break;
+    case CMT_START_APP: {
+        const quint8 length = m_data.startApp.name ? static_cast<quint8>(strlen(m_data.startApp.name)) : 0;
+        buffer.putChar(length);
+        if (length) {
+            buffer.write(m_data.startApp.name, length);
+        }
+    } break;
+    case CMT_RESIZE_DISPLAY:
+        BufferUtil::write16(buffer, m_data.resizeDisplay.width);
+        BufferUtil::write16(buffer, m_data.resizeDisplay.height);
+        break;
+    case CMT_SCAN_FILE: {
+        const quint32 length = m_data.scanFile.path ? static_cast<quint32>(strlen(m_data.scanFile.path)) : 0;
+        BufferUtil::write32(buffer, length);
+        if (length) {
+            buffer.write(m_data.scanFile.path, length);
+        }
+    } break;
     case CMT_EXPAND_NOTIFICATION_PANEL:
     case CMT_EXPAND_SETTINGS_PANEL:
     case CMT_COLLAPSE_PANELS:
     case CMT_ROTATE_DEVICE:
+    case CMT_OPEN_HARD_KEYBOARD_SETTINGS:
+    case CMT_RESET_VIDEO:
     case CMT_CAMERA_ZOOM_IN:
     case CMT_CAMERA_ZOOM_OUT:
         break;

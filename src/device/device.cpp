@@ -18,6 +18,24 @@ namespace qsc {
 
 Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params(params)
 {
+    if (isCameraMode()) {
+        // Camera capture has no Android display target. Normalize every
+        // display-only option here so all callers (UI, group control, or
+        // future APIs) receive the same safety boundary.
+        m_params.closeScreen = false;
+        m_params.stayAwake = false;
+        m_params.crop.clear();
+        m_params.displayId = 0;
+        m_params.newDisplay.clear();
+        m_params.flexDisplay = false;
+        m_params.vdDestroyContent = true;
+        m_params.vdSystemDecorations = true;
+        m_params.displayImePolicy.clear();
+        m_params.keepActive = false;
+        m_params.startApp.clear();
+        m_params.gameScript.clear();
+    }
+
     if (!params.display && !m_params.recordFile) {
         qCritical("not display must be recorded");
         return;
@@ -46,6 +64,9 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
                 }
             }, this);
         }
+        if (m_decoder) {
+            m_decoder->setRenderExpiredFrames(m_params.renderExpiredFrames);
+        }
 
         m_fileHandler = new FileHandler(this);
         m_controller = new Controller([this](const QByteArray& buffer) -> qint64 {
@@ -54,7 +75,8 @@ Device::Device(DeviceParams params, QObject *parent) : IDevice(parent), m_params
             }
 
             return m_server->getControlSocket()->write(buffer.data(), buffer.length());
-        }, params.gameScript, this);
+        }, m_params.gameScript, this);
+        m_controller->setCameraMode(isCameraMode());
     }
 
     m_stream = new Demuxer(this);
@@ -116,6 +138,11 @@ const QString &Device::getSerial()
 bool Device::isCameraMode() const
 {
     return m_params.videoSource == VIDEO_SOURCE_CAMERA;
+}
+
+bool Device::isFlexDisplay() const
+{
+    return m_params.flexDisplay;
 }
 
 void Device::updateScript(QString script)
@@ -221,6 +248,11 @@ void Device::initSignals()
             }
             qInfo() << tips;
         });
+        connect(m_fileHandler, &FileHandler::mediaScanRequested, this, [this](const QString &directory) {
+            if (m_controller && !isCameraMode()) {
+                m_controller->scanFile(directory);
+            }
+        });
     }
 
     if (m_server) {
@@ -282,6 +314,12 @@ void Device::initSignals()
                 if (m_params.videoSource == VIDEO_SOURCE_DISPLAY && m_params.closeScreen && m_params.display && m_controller) {
                     m_controller->setDisplayPower(false);
                 }
+                // Starting an Android app is only meaningful for display capture.
+                // Some bundled server builds do not accept control message type 16
+                // while a camera stream is active, which terminates the session.
+                if (m_params.videoSource == VIDEO_SOURCE_DISPLAY && !m_params.startApp.isEmpty() && m_controller) {
+                    m_controller->startApp(m_params.startApp);
+                }
             } else {
                 m_server->stop();
             }
@@ -295,6 +333,9 @@ void Device::initSignals()
     if (m_stream) {
         connect(m_stream, &Demuxer::sessionChanged, this, [this](const QSize &size, bool clientResized) {
             qInfo() << "Video session changed to" << size << "client resized:" << clientResized;
+            if (m_decoder) {
+                m_decoder->onVideoSessionChanged(size);
+            }
             for (const auto& item : m_deviceObservers) {
                 item->onVideoSessionChanged(size, clientResized);
             }
@@ -336,6 +377,17 @@ bool Device::connectDevice()
         return false;
     }
 
+    if (!m_params.newDisplay.isEmpty() && m_params.displayId > 0) {
+        qCritical("new_display and display_id are mutually exclusive");
+        return false;
+    }
+    if (m_params.flexDisplay
+        && (m_params.videoSource != VIDEO_SOURCE_DISPLAY || !m_params.display
+            || m_params.newDisplay.isEmpty() || !m_params.crop.isEmpty())) {
+        qCritical("flex_display requires display video, control, new_display, and no crop");
+        return false;
+    }
+
     // fix: macos cant recv finished signel, timer is ok
     QTimer::singleShot(0, this, [this]() {
         m_startTimeCount.start();
@@ -349,6 +401,9 @@ bool Device::connectDevice()
         params.serverRemotePath = m_params.serverRemotePath;
         params.serial = m_params.serial;
         params.localPort = m_params.localPort;
+        // scrcpy permits max_size together with flex_display. In that case,
+        // the server constrains each requested virtual-display resize to the
+        // encoder cap.
         params.maxSize = m_params.maxSize;
         params.bitRate = m_params.bitRate;
         params.maxFps = m_params.maxFps;
@@ -365,7 +420,14 @@ bool Device::connectDevice()
         params.codecName = m_params.codecName;
         params.scid = m_params.scid;
 
-        params.crop = "";
+        params.crop = m_params.crop;
+        params.displayId = m_params.displayId;
+        params.newDisplay = m_params.newDisplay;
+        params.flexDisplay = m_params.flexDisplay;
+        params.vdDestroyContent = m_params.vdDestroyContent;
+        params.vdSystemDecorations = m_params.vdSystemDecorations;
+        params.displayImePolicy = m_params.displayImePolicy;
+        params.keepActive = m_params.keepActive;
         params.control = true;
         m_server->start(params);
     });
@@ -569,6 +631,17 @@ void Device::expandNotificationPanel()
     }
 }
 
+void Device::expandSettingsPanel()
+{
+    if (isCameraMode() || !m_controller) {
+        return;
+    }
+    m_controller->expandSettingsPanel();
+    for (const auto& item : m_deviceObservers) {
+        item->expandSettingsPanel();
+    }
+}
+
 void Device::collapsePanel()
 {
     if (isCameraMode()) {
@@ -582,6 +655,38 @@ void Device::collapsePanel()
     for (const auto& item : m_deviceObservers) {
         item->collapsePanel();
     }
+}
+
+void Device::rotateDevice()
+{
+    if (isCameraMode() || !m_controller) {
+        return;
+    }
+    m_controller->rotateDevice();
+    for (const auto& item : m_deviceObservers) {
+        item->rotateDevice();
+    }
+}
+
+void Device::startApp(const QString &name)
+{
+    if (isCameraMode() || !m_controller || name.isEmpty()) {
+        return;
+    }
+    m_controller->startApp(name);
+    for (const auto& item : m_deviceObservers) {
+        item->startApp(name);
+    }
+}
+
+void Device::resizeDisplay(const QSize &size)
+{
+    if (isCameraMode() || !m_controller || !m_params.flexDisplay) {
+        return;
+    }
+    // Resize is intentionally not broadcast to group observers. Each virtual
+    // display keeps its own dimensions while group input remains normalized.
+    m_controller->resizeDisplay(size);
 }
 
 void Device::postBackOrScreenOn(bool down)

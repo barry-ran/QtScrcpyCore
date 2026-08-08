@@ -1,5 +1,13 @@
 #include "filehandler.h"
 
+namespace {
+QString mediaDirectory(const QString &devicePath)
+{
+    const int slash = devicePath.lastIndexOf('/');
+    return slash >= 0 ? devicePath.left(slash + 1) : devicePath;
+}
+}
+
 FileHandler::FileHandler(QObject *parent) : QObject(parent)
 {
 }
@@ -10,8 +18,9 @@ void FileHandler::onPushFileRequest(const QString &serial, const QString &file, 
 {
     qsc::AdbProcess* adb = new qsc::AdbProcess;
     bool isApk = false;
-    connect(adb, &qsc::AdbProcess::adbProcessResult, this, [this, adb, isApk](qsc::AdbProcess::ADB_EXEC_RESULT processResult) {
-        onAdbProcessResult(adb, isApk, processResult);
+    const QString scanDirectory = mediaDirectory(devicePath);
+    connect(adb, &qsc::AdbProcess::adbProcessResult, this, [this, adb, isApk, scanDirectory](qsc::AdbProcess::ADB_EXEC_RESULT processResult) {
+        onAdbProcessResult(adb, isApk, scanDirectory, processResult);
     });
 
     adb->push(serial, file, devicePath);
@@ -22,13 +31,13 @@ void FileHandler::onInstallApkRequest(const QString &serial, const QString &apkF
     qsc::AdbProcess* adb = new qsc::AdbProcess;
     bool isApk = true;
     connect(adb, &qsc::AdbProcess::adbProcessResult, this, [this, adb, isApk](qsc::AdbProcess::ADB_EXEC_RESULT processResult) {
-        onAdbProcessResult(adb, isApk, processResult);
+        onAdbProcessResult(adb, isApk, QString(), processResult);
     });
 
     adb->install(serial, apkFile);
 }
 
-void FileHandler::onAdbProcessResult(qsc::AdbProcess *adb, bool isApk, qsc::AdbProcess::ADB_EXEC_RESULT processResult)
+void FileHandler::onAdbProcessResult(qsc::AdbProcess *adb, bool isApk, const QString &mediaDirectory, qsc::AdbProcess::ADB_EXEC_RESULT processResult)
 {
     switch (processResult) {
     case qsc::AdbProcess::AER_ERROR_START:
@@ -39,6 +48,9 @@ void FileHandler::onAdbProcessResult(qsc::AdbProcess *adb, bool isApk, qsc::AdbP
         break;
     case qsc::AdbProcess::AER_SUCCESS_EXEC:
         emit fileHandlerResult(FAR_SUCCESS_EXEC, isApk);
+        if (!isApk && !mediaDirectory.isEmpty()) {
+            emit mediaScanRequested(mediaDirectory);
+        }
         adb->deleteLater();
         break;
     default:

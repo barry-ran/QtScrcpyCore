@@ -138,7 +138,8 @@ bool Server::execute()
     args << m_params.serverVersion;
 
     args << QString("video_bit_rate=%1").arg(QString::number(m_params.bitRate));
-    if (m_params.videoSource == qsc::VIDEO_SOURCE_CAMERA) {
+    const bool cameraMode = m_params.videoSource == qsc::VIDEO_SOURCE_CAMERA;
+    if (cameraMode) {
         args << "video_source=camera";
         if (!m_params.cameraId.isEmpty()) {
             args << QString("camera_id=%1").arg(m_params.cameraId);
@@ -170,8 +171,27 @@ bool Server::execute()
     if (m_tunnelForward) {
         args << QString("tunnel_forward=true");
     }
-    if (!m_params.crop.isEmpty()) {
-        args << QString("crop=%1").arg(m_params.crop);
+    if (!cameraMode) {
+        if (!m_params.crop.isEmpty()) {
+            args << QString("crop=%1").arg(m_params.crop);
+        }
+        if (!m_params.newDisplay.isEmpty()) {
+            args << QString("new_display=%1").arg(m_params.newDisplay);
+            if (m_params.flexDisplay) {
+                args << "flex_display=true";
+            }
+            if (!m_params.vdDestroyContent) {
+                args << "vd_destroy_content=false";
+            }
+            if (!m_params.vdSystemDecorations) {
+                args << "vd_system_decorations=false";
+            }
+            if (!m_params.displayImePolicy.isEmpty()) {
+                args << QString("display_ime_policy=%1").arg(m_params.displayImePolicy);
+            }
+        } else if (m_params.displayId > 0) {
+            args << QString("display_id=%1").arg(m_params.displayId);
+        }
     }
     if (!m_params.control) {
         args << QString("control=false");
@@ -180,8 +200,13 @@ bool Server::execute()
     // args << "display_id=0";
     // 默认是false，不需要设置
     // args << "show_touches=false";
-    if (m_params.stayAwake) {
-        args << QString("stay_awake=true");
+    if (!cameraMode) {
+        if (m_params.stayAwake) {
+            args << QString("stay_awake=true");
+        }
+        if (m_params.keepActive) {
+            args << "keep_active=true";
+        }
     }
     // code option
     // https://github.com/Genymobile/scrcpy/commit/080a4ee3654a9b7e96c8ffe37474b5c21c02852a

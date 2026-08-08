@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QClipboard>
+#include <QTimer>
 
 #include "controller.h"
 #include "controlmsg.h"
@@ -21,9 +22,28 @@ Controller::~Controller() {}
 
 void Controller::postControlMsg(ControlMsg *controlMsg)
 {
-    if (controlMsg) {
-        QCoreApplication::postEvent(this, controlMsg);
+    if (!controlMsg) {
+        return;
     }
+
+    if (m_cameraMode) {
+        const auto type = controlMsg->type();
+        const bool isCameraControl = type == ControlMsg::CMT_CAMERA_SET_TORCH
+                || type == ControlMsg::CMT_CAMERA_ZOOM_IN
+                || type == ControlMsg::CMT_CAMERA_ZOOM_OUT;
+        if (!isCameraControl) {
+            qWarning() << "Ignoring display control message in camera mode:" << type;
+            delete controlMsg;
+            return;
+        }
+    }
+
+    QCoreApplication::postEvent(this, controlMsg);
+}
+
+void Controller::setCameraMode(bool cameraMode)
+{
+    m_cameraMode = cameraMode;
 }
 
 void Controller::recvDeviceMsg(DeviceMsg *deviceMsg)
@@ -132,12 +152,67 @@ void Controller::expandNotificationPanel()
     postControlMsg(controlMsg);
 }
 
+void Controller::expandSettingsPanel()
+{
+    postControlMsg(new ControlMsg(ControlMsg::CMT_EXPAND_SETTINGS_PANEL));
+}
+
 void Controller::collapsePanel()
 {
     ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_COLLAPSE_PANELS);
     if (!controlMsg) {
         return;
     }
+    postControlMsg(controlMsg);
+}
+
+void Controller::rotateDevice()
+{
+    postControlMsg(new ControlMsg(ControlMsg::CMT_ROTATE_DEVICE));
+}
+
+void Controller::startApp(const QString &name)
+{
+    if (name.isEmpty()) {
+        return;
+    }
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_START_APP);
+    controlMsg->setStartAppData(name);
+    postControlMsg(controlMsg);
+}
+
+void Controller::scanFile(const QString &path)
+{
+    if (path.isEmpty()) {
+        return;
+    }
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_SCAN_FILE);
+    controlMsg->setScanFileData(path);
+    postControlMsg(controlMsg);
+}
+
+void Controller::resizeDisplay(const QSize &size)
+{
+    if (size.width() <= 0 || size.height() <= 0) {
+        return;
+    }
+    m_pendingResize = size;
+    if (m_resizeQueued) {
+        return;
+    }
+    m_resizeQueued = true;
+    QTimer::singleShot(0, this, &Controller::sendPendingResize);
+}
+
+void Controller::sendPendingResize()
+{
+    m_resizeQueued = false;
+    if (m_pendingResize.isEmpty()) {
+        return;
+    }
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_RESIZE_DISPLAY);
+    controlMsg->setResizeDisplayData(m_pendingResize);
+    m_pendingResize = QSize();
     postControlMsg(controlMsg);
 }
 

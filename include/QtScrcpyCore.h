@@ -69,7 +69,10 @@ public:
         Q_UNUSED(on);
     }
     virtual void expandNotificationPanel() {}
+    virtual void expandSettingsPanel() {}
     virtual void collapsePanel() {}
+    virtual void rotateDevice() {}
+    virtual void startApp(const QString &name) { Q_UNUSED(name); }
     virtual void postBackOrScreenOn(bool down) { Q_UNUSED(down); }
     virtual void postTextInput(QString &text) { Q_UNUSED(text); }
     virtual void requestDeviceClipboard() {}
@@ -118,7 +121,11 @@ public:
     virtual void postCut() = 0;
     virtual void setDisplayPower(bool on) = 0;
     virtual void expandNotificationPanel() = 0;
+    virtual void expandSettingsPanel() = 0;
     virtual void collapsePanel() = 0;
+    virtual void rotateDevice() = 0;
+    virtual void startApp(const QString &name) = 0;
+    virtual void resizeDisplay(const QSize &size) = 0;
     virtual void postBackOrScreenOn(bool down) = 0;
     virtual void postTextInput(QString &text) = 0;
     virtual void requestDeviceClipboard() = 0;
@@ -136,6 +143,7 @@ public:
     virtual bool isReversePort(quint16 port) = 0;
     virtual const QString &getSerial() = 0;
     virtual bool isCameraMode() const { return false; }
+    virtual bool isFlexDisplay() const { return false; }
 
     virtual void updateScript(QString script) = 0;
     virtual bool isCurrentCustomKeymap() = 0;

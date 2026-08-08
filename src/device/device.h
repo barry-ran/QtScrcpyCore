@@ -55,7 +55,11 @@ public:
     void postCut() override;
     void setDisplayPower(bool on) override;
     void expandNotificationPanel() override;
+    void expandSettingsPanel() override;
     void collapsePanel() override;
+    void rotateDevice() override;
+    void startApp(const QString &name) override;
+    void resizeDisplay(const QSize &size) override;
     void postBackOrScreenOn(bool down) override;
     void postTextInput(QString &text) override;
     void requestDeviceClipboard() override;
@@ -73,6 +77,7 @@ public:
     bool isReversePort(quint16 port) override;
     const QString &getSerial() override;
     bool isCameraMode() const override;
+    bool isFlexDisplay() const override;
 
     void updateScript(QString script) override;
     bool isCurrentCustomKeymap() override;

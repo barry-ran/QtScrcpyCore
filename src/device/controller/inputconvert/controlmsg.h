@@ -12,6 +12,8 @@
 #define CONTROL_MSG_MAX_SIZE (1 << 18) // 256k
 
 #define CONTROL_MSG_INJECT_TEXT_MAX_LENGTH 300
+#define CONTROL_MSG_START_APP_MAX_LENGTH 255
+#define CONTROL_MSG_SCAN_FILE_PATH_MAX_LENGTH 256
 // type: 1 byte; sequence: 8 bytes; paste flag: 1 byte; length: 4 bytes
 #define CONTROL_MSG_CLIPBOARD_TEXT_MAX_LENGTH \
     (CONTROL_MSG_MAX_SIZE - 14)
@@ -42,9 +44,14 @@ public:
         CMT_SET_CLIPBOARD,
         CMT_SET_DISPLAY_POWER,
         CMT_ROTATE_DEVICE,
+        CMT_OPEN_HARD_KEYBOARD_SETTINGS = 15,
+        CMT_START_APP,
+        CMT_RESET_VIDEO,
         CMT_CAMERA_SET_TORCH = 18,
         CMT_CAMERA_ZOOM_IN = 19,
         CMT_CAMERA_ZOOM_OUT = 20,
+        CMT_RESIZE_DISPLAY,
+        CMT_SCAN_FILE,
     };
 
     enum GetClipboardCopyKey {
@@ -74,7 +81,11 @@ public:
     void setDisplayPowerData(bool on);
     void setBackOrScreenOnData(bool down);
     void setCameraTorchData(bool on);
+    void setStartAppData(const QString &name);
+    void setScanFileData(const QString &path);
+    void setResizeDisplayData(const QSize &size);
 
+    ControlMsgType type() const { return m_data.type; }
     QByteArray serializeData();
 
 private:
@@ -138,6 +149,19 @@ private:
             {
                 bool on;
             } cameraTorch;
+            struct
+            {
+                char *name = Q_NULLPTR;
+            } startApp;
+            struct
+            {
+                quint16 width;
+                quint16 height;
+            } resizeDisplay;
+            struct
+            {
+                char *path = Q_NULLPTR;
+            } scanFile;
         };
 
         ControlMsgData() {}
