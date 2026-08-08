@@ -132,6 +132,7 @@ public:
 
     virtual bool isReversePort(quint16 port) = 0;
     virtual const QString &getSerial() = 0;
+    virtual bool isCameraMode() const { return false; }
 
     virtual void updateScript(QString script) = 0;
     virtual bool isCurrentCustomKeymap() = 0;

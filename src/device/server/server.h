@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QSize>
 
+#include "../../../include/QtScrcpyCoreDef.h"
 #include "adbprocess.h"
 #include "tcpserver.h"
 #include "videosocket.h"
@@ -36,6 +37,8 @@ public:
         quint16 maxSize = 720;         // 视频分辨率
         quint32 bitRate = 8000000;     // 视频比特率
         quint32 maxFps = 0;            // 视频最大帧率
+        qsc::VideoSource videoSource = qsc::VIDEO_SOURCE_DISPLAY;
+        qsc::CameraFacing cameraFacing = qsc::CAMERA_FACING_BACK;
         bool useReverse = true;        // true:先使用adb reverse，失败后自动使用adb forward；false:直接使用adb forward
         int captureOrientationLock = 0; // 是否锁定采集方向 0不锁定 1锁定指定方向 2锁定原始方向
         int captureOrientation = 0;     // 采集方向 0 90 180 270

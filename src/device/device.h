@@ -69,6 +69,7 @@ public:
 
     bool isReversePort(quint16 port) override;
     const QString &getSerial() override;
+    bool isCameraMode() const override;
 
     void updateScript(QString script) override;
     bool isCurrentCustomKeymap() override;

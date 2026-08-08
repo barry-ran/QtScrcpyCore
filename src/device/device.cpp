@@ -113,8 +113,16 @@ const QString &Device::getSerial()
     return m_params.serial;
 }
 
+bool Device::isCameraMode() const
+{
+    return m_params.videoSource == VIDEO_SOURCE_CAMERA;
+}
+
 void Device::updateScript(QString script)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (m_controller) {
         m_controller->updateScript(script);
     }
@@ -134,6 +142,9 @@ void Device::screenshot()
 
 void Device::showTouch(bool show)
 {
+    if (isCameraMode()) {
+        return;
+    }
     AdbProcess *adb = new qsc::AdbProcess();
     if (!adb) {
         return;
@@ -244,7 +255,7 @@ void Device::initSignals()
                 });
 
                 // 显示界面时才自动息屏（m_params.display）
-                if (m_params.closeScreen && m_params.display && m_controller) {
+                if (m_params.videoSource == VIDEO_SOURCE_DISPLAY && m_params.closeScreen && m_params.display && m_controller) {
                     m_controller->setDisplayPower(false);
                 }
             } else {
@@ -317,10 +328,12 @@ bool Device::connectDevice()
         params.maxSize = m_params.maxSize;
         params.bitRate = m_params.bitRate;
         params.maxFps = m_params.maxFps;
+        params.videoSource = m_params.videoSource;
+        params.cameraFacing = m_params.cameraFacing;
         params.useReverse = m_params.useReverse;
         params.captureOrientationLock = m_params.captureOrientationLock;
         params.captureOrientation = m_params.captureOrientation;
-        params.stayAwake = m_params.stayAwake;
+        params.stayAwake = m_params.videoSource == VIDEO_SOURCE_CAMERA ? false : m_params.stayAwake;
         params.serverVersion = m_params.serverVersion;
         params.logLevel = m_params.logLevel;
         params.codecOptions = m_params.codecOptions;
@@ -368,6 +381,9 @@ void Device::disconnectDevice()
 
 void Device::postGoBack()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -380,6 +396,9 @@ void Device::postGoBack()
 
 void Device::postGoHome()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -392,6 +411,9 @@ void Device::postGoHome()
 
 void Device::postGoMenu()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -404,6 +426,9 @@ void Device::postGoMenu()
 
 void Device::postAppSwitch()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -416,6 +441,9 @@ void Device::postAppSwitch()
 
 void Device::postPower()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -428,6 +456,9 @@ void Device::postPower()
 
 void Device::postVolumeUp()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -440,6 +471,9 @@ void Device::postVolumeUp()
 
 void Device::postVolumeDown()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -452,6 +486,9 @@ void Device::postVolumeDown()
 
 void Device::postCopy()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -464,6 +501,9 @@ void Device::postCopy()
 
 void Device::postCut()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -476,6 +516,9 @@ void Device::postCut()
 
 void Device::setDisplayPower(bool on)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -488,6 +531,9 @@ void Device::setDisplayPower(bool on)
 
 void Device::expandNotificationPanel()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -500,6 +546,9 @@ void Device::expandNotificationPanel()
 
 void Device::collapsePanel()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -512,6 +561,9 @@ void Device::collapsePanel()
 
 void Device::postBackOrScreenOn(bool down)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -524,6 +576,9 @@ void Device::postBackOrScreenOn(bool down)
 
 void Device::postTextInput(QString &text)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -536,6 +591,9 @@ void Device::postTextInput(QString &text)
 
 void Device::requestDeviceClipboard()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -548,6 +606,9 @@ void Device::requestDeviceClipboard()
 
 void Device::setDeviceClipboard(bool pause)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -560,6 +621,9 @@ void Device::setDeviceClipboard(bool pause)
 
 void Device::clipboardPaste()
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -572,6 +636,9 @@ void Device::clipboardPaste()
 
 void Device::pushFileRequest(const QString &file, const QString &devicePath)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_fileHandler) {
         return;
     }
@@ -584,6 +651,9 @@ void Device::pushFileRequest(const QString &file, const QString &devicePath)
 
 void Device::installApkRequest(const QString &apkFile)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_fileHandler) {
         return;
     }
@@ -596,6 +666,9 @@ void Device::installApkRequest(const QString &apkFile)
 
 void Device::mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -608,6 +681,9 @@ void Device::mouseEvent(const QMouseEvent *from, const QSize &frameSize, const Q
 
 void Device::wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -620,6 +696,9 @@ void Device::wheelEvent(const QWheelEvent *from, const QSize &frameSize, const Q
 
 void Device::keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize)
 {
+    if (isCameraMode()) {
+        return;
+    }
     if (!m_controller) {
         return;
     }
@@ -632,6 +711,9 @@ void Device::keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize
 
 bool Device::isCurrentCustomKeymap()
 {
+    if (isCameraMode()) {
+        return false;
+    }
     if (!m_controller) {
         return false;
     }
