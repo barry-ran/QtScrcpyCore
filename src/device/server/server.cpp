@@ -140,8 +140,12 @@ bool Server::execute()
     args << QString("video_bit_rate=%1").arg(QString::number(m_params.bitRate));
     if (m_params.videoSource == qsc::VIDEO_SOURCE_CAMERA) {
         args << "video_source=camera";
-        args << QString("camera_facing=%1")
-                    .arg(m_params.cameraFacing == qsc::CAMERA_FACING_FRONT ? "front" : "back");
+        if (!m_params.cameraId.isEmpty()) {
+            args << QString("camera_id=%1").arg(m_params.cameraId);
+        } else {
+            args << QString("camera_facing=%1")
+                        .arg(m_params.cameraFacing == qsc::CAMERA_FACING_FRONT ? "front" : "back");
+        }
     }
     if (!m_params.logLevel.isEmpty()) {
         args << QString("log_level=%1").arg(m_params.logLevel);

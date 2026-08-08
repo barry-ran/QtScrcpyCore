@@ -200,6 +200,23 @@ void Controller::setDisplayPower(bool on)
     postControlMsg(controlMsg);
 }
 
+void Controller::setCameraTorch(bool on)
+{
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_CAMERA_SET_TORCH);
+    controlMsg->setCameraTorchData(on);
+    postControlMsg(controlMsg);
+}
+
+void Controller::cameraZoomIn()
+{
+    postControlMsg(new ControlMsg(ControlMsg::CMT_CAMERA_ZOOM_IN));
+}
+
+void Controller::cameraZoomOut()
+{
+    postControlMsg(new ControlMsg(ControlMsg::CMT_CAMERA_ZOOM_OUT));
+}
+
 void Controller::mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize)
 {
     if (m_inputConvert) {

@@ -32,6 +32,7 @@ struct DeviceParams {
     quint32 maxFps = 0;               // 视频最大帧率
     VideoSource videoSource = VIDEO_SOURCE_DISPLAY;
     CameraFacing cameraFacing = CAMERA_FACING_BACK;
+    QString cameraId = "";            // 指定相机 ID，空值时按 cameraFacing 选择
     bool useReverse = true;           // true:先使用adb reverse，失败后自动使用adb forward；false:直接使用adb forward
     int captureOrientationLock = 0;   // 是否锁定采集方向 0不锁定 1锁定指定方向 2锁定原始方向
     int captureOrientation = 0;       // 采集方向 0 90 180 270

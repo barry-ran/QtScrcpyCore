@@ -66,6 +66,9 @@ public:
 
     void screenshot() override;
     void showTouch(bool show) override;
+    void setCameraTorch(bool on) override;
+    void cameraZoomIn() override;
+    void cameraZoomOut() override;
 
     bool isReversePort(quint16 port) override;
     const QString &getSerial() override;

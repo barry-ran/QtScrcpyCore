@@ -96,6 +96,11 @@ void ControlMsg::setDisplayPowerData(bool on)
     m_data.setDisplayPower.on = on;
 }
 
+void ControlMsg::setCameraTorchData(bool on)
+{
+    m_data.cameraTorch.on = on;
+}
+
 void ControlMsg::setBackOrScreenOnData(bool down)
 {
     m_data.backOrScreenOn.action = down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP;
@@ -192,10 +197,15 @@ QByteArray ControlMsg::serializeData()
     case CMT_SET_DISPLAY_POWER:
         buffer.putChar(m_data.setDisplayPower.on);
         break;
+    case CMT_CAMERA_SET_TORCH:
+        buffer.putChar(m_data.cameraTorch.on);
+        break;
     case CMT_EXPAND_NOTIFICATION_PANEL:
     case CMT_EXPAND_SETTINGS_PANEL:
     case CMT_COLLAPSE_PANELS:
     case CMT_ROTATE_DEVICE:
+    case CMT_CAMERA_ZOOM_IN:
+    case CMT_CAMERA_ZOOM_OUT:
         break;
     default:
         qDebug() << "Unknown event type:" << m_data.type;

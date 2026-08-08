@@ -129,6 +129,9 @@ public:
 
     virtual void screenshot() = 0;
     virtual void showTouch(bool show) = 0;
+    virtual void setCameraTorch(bool on) { Q_UNUSED(on); }
+    virtual void cameraZoomIn() {}
+    virtual void cameraZoomOut() {}
 
     virtual bool isReversePort(quint16 port) = 0;
     virtual const QString &getSerial() = 0;

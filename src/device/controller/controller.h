@@ -37,6 +37,9 @@ public:
     void expandNotificationPanel();
     void collapsePanel();
     void setDisplayPower(bool on);
+    void setCameraTorch(bool on);
+    void cameraZoomIn();
+    void cameraZoomOut();
 
     // for input convert
     void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize);

@@ -41,7 +41,10 @@ public:
         CMT_GET_CLIPBOARD,
         CMT_SET_CLIPBOARD,
         CMT_SET_DISPLAY_POWER,
-        CMT_ROTATE_DEVICE
+        CMT_ROTATE_DEVICE,
+        CMT_CAMERA_SET_TORCH = 18,
+        CMT_CAMERA_ZOOM_IN = 19,
+        CMT_CAMERA_ZOOM_OUT = 20,
     };
 
     enum GetClipboardCopyKey {
@@ -70,6 +73,7 @@ public:
     void setSetClipboardMsgData(QString &text, bool paste);
     void setDisplayPowerData(bool on);
     void setBackOrScreenOnData(bool down);
+    void setCameraTorchData(bool on);
 
     QByteArray serializeData();
 
@@ -130,6 +134,10 @@ private:
             {
                 bool on;
             } setDisplayPower;
+            struct
+            {
+                bool on;
+            } cameraTorch;
         };
 
         ControlMsgData() {}

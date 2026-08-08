@@ -159,6 +159,30 @@ void Device::showTouch(bool show)
     qInfo() << getSerial() << " show touch " << (show ? "enable" : "disable");
 }
 
+void Device::setCameraTorch(bool on)
+{
+    if (!isCameraMode() || !m_controller) {
+        return;
+    }
+    m_controller->setCameraTorch(on);
+}
+
+void Device::cameraZoomIn()
+{
+    if (!isCameraMode() || !m_controller) {
+        return;
+    }
+    m_controller->cameraZoomIn();
+}
+
+void Device::cameraZoomOut()
+{
+    if (!isCameraMode() || !m_controller) {
+        return;
+    }
+    m_controller->cameraZoomOut();
+}
+
 bool Device::isReversePort(quint16 port)
 {
     if (m_server && m_server->isReverse() && port == m_server->getParams().localPort) {
@@ -330,6 +354,7 @@ bool Device::connectDevice()
         params.maxFps = m_params.maxFps;
         params.videoSource = m_params.videoSource;
         params.cameraFacing = m_params.cameraFacing;
+        params.cameraId = m_params.cameraId;
         params.useReverse = m_params.useReverse;
         params.captureOrientationLock = m_params.captureOrientationLock;
         params.captureOrientation = m_params.captureOrientation;
