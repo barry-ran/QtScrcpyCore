@@ -57,6 +57,60 @@ void InputConvertNormal::mouseEvent(const QMouseEvent *from, const QSize &frameS
         QRect(pos.toPoint(), frameSize),
         AMOTION_EVENT_ACTION_DOWN == action ? 1.0f : 0.0f);
     sendControlMsg(controlMsg);
+
+    // pinch-to-zoom / tilt simulation (ported from scrcpy):
+    // inject a second "virtual finger" whose position is the drag position
+    // mirrored through the center of the screen (on one or both axes).
+    const bool ctrl = from->modifiers().testFlag(Qt::ControlModifier);
+    const bool shift = from->modifiers().testFlag(Qt::ShiftModifier);
+
+    bool startPinch = AMOTION_EVENT_ACTION_DOWN == action
+            && from->button() == Qt::LeftButton
+            && !m_vfingerDown && (ctrl || shift);
+    bool endPinch = AMOTION_EVENT_ACTION_UP == action
+            && from->button() == Qt::LeftButton && m_vfingerDown;
+
+    if (startPinch) {
+        // Ctrl: invert both axes (pinch/rotate); Shift: invert x only (vertical
+        // tilt); Ctrl+Shift: invert y only (horizontal tilt). Same rule as scrcpy.
+        m_vfingerInvertX = ctrl != shift;
+        m_vfingerInvertY = ctrl;
+        m_vfingerDown = true;
+    }
+
+    if (m_vfingerDown && (startPinch || endPinch || AMOTION_EVENT_ACTION_MOVE == action)) {
+        QPoint vpos = pos.toPoint();
+        if (m_vfingerInvertX) {
+            vpos.setX(frameSize.width() - vpos.x());
+        }
+        if (m_vfingerInvertY) {
+            vpos.setY(frameSize.height() - vpos.y());
+        }
+        AndroidMotioneventAction vaction = action;
+        if (endPinch) {
+            vaction = AMOTION_EVENT_ACTION_UP;
+        }
+        sendVirtualFingerEvent(vaction, vpos, frameSize);
+        if (endPinch) {
+            m_vfingerDown = false;
+        }
+    }
+}
+
+void InputConvertNormal::sendVirtualFingerEvent(AndroidMotioneventAction action, const QPoint &pos, const QSize &frameSize)
+{
+    ControlMsg *controlMsg = new ControlMsg(ControlMsg::CMT_INJECT_TOUCH);
+    if (!controlMsg) {
+        return;
+    }
+    controlMsg->setInjectTouchMsgData(
+        static_cast<quint64>(POINTER_ID_VIRTUAL_FINGER),
+        action,
+        static_cast<AndroidMotioneventButtons>(0),
+        static_cast<AndroidMotioneventButtons>(0),
+        QRect(pos, frameSize),
+        AMOTION_EVENT_ACTION_UP == action ? 0.0f : 1.0f);
+    sendControlMsg(controlMsg);
 }
 
 void InputConvertNormal::wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize)
