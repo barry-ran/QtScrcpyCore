@@ -19,6 +19,20 @@ private:
     AndroidMotioneventButtons convertMouseButton(Qt::MouseButton button);
     AndroidKeycode convertKeyCode(int key, Qt::KeyboardModifiers modifiers);
     AndroidMetastate convertMetastate(Qt::KeyboardModifiers modifiers);
+
+    // pinch-to-zoom / tilt simulation (ported from scrcpy)
+    // Hold Ctrl and drag the left button: a "virtual finger" is injected at
+    // the point symmetric to the dragging finger with respect to the center
+    // of the screen, which Android apps interpret as a two-finger pinch.
+    //   Ctrl        -> pinch-to-zoom / rotate (both axes inverted)
+    //   Shift       -> vertical tilt (x inverted only)
+    //   Ctrl+Shift  -> horizontal tilt (y inverted only)
+    void sendVirtualFingerEvent(AndroidMotioneventAction action, const QPoint &pos,
+                                const QSize &frameSize);
+
+    bool m_vfingerDown = false;
+    bool m_vfingerInvertX = false;
+    bool m_vfingerInvertY = false;
 };
 
 #endif // INPUTCONVERT_H
