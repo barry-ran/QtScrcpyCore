@@ -54,6 +54,7 @@ public:
         Q_UNUSED(frameSize);
         Q_UNUSED(showSize);
     }
+    virtual void releaseInput(const QSize &frameSize = QSize()) { Q_UNUSED(frameSize); }
 
     virtual void postGoBack() {}
     virtual void postGoHome() {}
@@ -109,6 +110,7 @@ public:
     virtual void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize) = 0;
     virtual void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize) = 0;
     virtual void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize) = 0;
+    virtual void releaseInput(const QSize &frameSize = QSize()) { Q_UNUSED(frameSize); }
 
     virtual void postGoBack() = 0;
     virtual void postGoHome() = 0;

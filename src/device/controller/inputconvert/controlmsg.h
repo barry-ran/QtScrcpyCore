@@ -89,6 +89,8 @@ public:
     QByteArray serializeData();
 
 private:
+    friend class InputConvertBase;
+
     void writePosition(QBuffer &buffer, const QRect &value);
     quint16 flostToU16fp(float f);
     qint16 flostToI16fp(float f);

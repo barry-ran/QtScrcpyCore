@@ -3,6 +3,7 @@
 
 #include <QPointF>
 #include <QQueue>
+#include <QSet>
 
 #include "inputconvertnormal.h"
 #include "keymap.h"
@@ -19,6 +20,8 @@ public:
     virtual void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize);
     virtual void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize);
     virtual bool isCurrentCustomKeymap();
+    void resetInput(const QSize &frameSize = QSize()) override;
+    void setCurrentCustomKeymap(bool enabled);
 
     void loadKeyMap(const QString &json);
 
@@ -83,6 +86,8 @@ private:
     bool m_gameMap = false;
     bool m_needBackMouseMove = false;
     int m_multiTouchID[MULTI_TOUCH_MAX_NUM] = { 0 };
+    QSet<int> m_pressedMappedKeys;
+    quint64 m_inputGeneration = 0;
     KeyMap m_keyMap;
 
     bool m_processMouseMove = true;
