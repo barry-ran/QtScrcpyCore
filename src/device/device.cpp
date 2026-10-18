@@ -333,6 +333,9 @@ void Device::initSignals()
     if (m_stream) {
         connect(m_stream, &Demuxer::sessionChanged, this, [this](const QSize &size, bool clientResized) {
             qInfo() << "Video session changed to" << size << "client resized:" << clientResized;
+            if (m_controller) {
+                m_controller->resetInput(size);
+            }
             if (m_decoder) {
                 m_decoder->onVideoSessionChanged(size);
             }
@@ -439,6 +442,17 @@ void Device::disconnectDevice()
 {
     if (!m_server) {
         return;
+    }
+    releaseInput();
+    if (auto *socket = m_server->getControlSocket()) {
+        QElapsedTimer deadline;
+        deadline.start();
+        socket->flush();
+        while (socket->bytesToWrite() > 0 && deadline.elapsed() < 250) {
+            if (!socket->waitForBytesWritten(250 - static_cast<int>(deadline.elapsed()))) {
+                break;
+            }
+        }
     }
     m_server->stop();
     m_server = Q_NULLPTR;
@@ -791,6 +805,16 @@ void Device::installApkRequest(const QString &apkFile)
 
     for (const auto& item : m_deviceObservers) {
         item->installApkRequest(apkFile);
+    }
+}
+
+void Device::releaseInput(const QSize &frameSize)
+{
+    if (m_controller) {
+        m_controller->resetInput(frameSize);
+    }
+    for (const auto &item : m_deviceObservers) {
+        item->releaseInput(frameSize);
     }
 }
 
