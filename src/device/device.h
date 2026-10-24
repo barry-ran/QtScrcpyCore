@@ -43,6 +43,7 @@ public:
     void mouseEvent(const QMouseEvent *from, const QSize &frameSize, const QSize &showSize) override;
     void wheelEvent(const QWheelEvent *from, const QSize &frameSize, const QSize &showSize) override;
     void keyEvent(const QKeyEvent *from, const QSize &frameSize, const QSize &showSize) override;
+    void releaseInput(const QSize &frameSize = QSize()) override;
 
     void postGoBack() override;
     void postGoHome() override;
@@ -90,6 +91,7 @@ private:
     // server relevant
     QPointer<Server> m_server;
     bool m_serverStartSuccess = false;
+    bool m_serverStarting = false;
     QPointer<IDecoder> m_decoder;
     QPointer<Controller> m_controller;
     QPointer<FileHandler> m_fileHandler;

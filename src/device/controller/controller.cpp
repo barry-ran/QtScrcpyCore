@@ -18,7 +18,10 @@ Controller::Controller(std::function<qint64(const QByteArray&)> sendData, QStrin
     updateScript(gameScript);
 }
 
-Controller::~Controller() {}
+Controller::~Controller()
+{
+    resetInput();
+}
 
 void Controller::postControlMsg(ControlMsg *controlMsg)
 {
@@ -65,8 +68,11 @@ void Controller::test(QRect rc)
 
 void Controller::updateScript(QString gameScript)
 {
+    const bool wasCustomKeymapActive = m_inputConvert && m_inputConvert->isCurrentCustomKeymap();
     if (m_inputConvert) {
+        resetInput();
         delete m_inputConvert;
+        m_inputConvert = nullptr;
     }
     if (!gameScript.isEmpty()) {
         InputConvertGame *convertgame = new InputConvertGame(this);
@@ -77,6 +83,20 @@ void Controller::updateScript(QString gameScript)
     }
     Q_ASSERT(m_inputConvert);
     connect(m_inputConvert, &InputConvertBase::grabCursor, this, &Controller::grabCursor);
+    if (wasCustomKeymapActive) {
+        if (auto *convertgame = qobject_cast<InputConvertGame *>(m_inputConvert)) {
+            convertgame->setCurrentCustomKeymap(true);
+        }
+    }
+}
+
+void Controller::resetInput(const QSize &frameSize)
+{
+    if (m_inputConvert) {
+        m_inputConvert->resetInput(frameSize);
+    }
+    // Send pending DOWNs followed by their UPs while the socket still exists.
+    QCoreApplication::sendPostedEvents(this, QScrcpyEvent::Control);
 }
 
 bool Controller::isCurrentCustomKeymap()

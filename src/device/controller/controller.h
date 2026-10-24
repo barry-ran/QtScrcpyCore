@@ -25,6 +25,7 @@ public:
     void test(QRect rc);
 
     void updateScript(QString gameScript = "");
+    void resetInput(const QSize &frameSize = QSize());
     bool isCurrentCustomKeymap();
 
     void postGoBack();

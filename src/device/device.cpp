@@ -257,6 +257,7 @@ void Device::initSignals()
 
     if (m_server) {
         connect(m_server, &Server::serverStarted, this, [this](bool success, const QString &deviceName, const QSize &size) {
+            m_serverStarting = false;
             m_serverStartSuccess = success;
             emit deviceConnected(success, m_params.serial, deviceName, size);
             if (success) {
@@ -333,6 +334,9 @@ void Device::initSignals()
     if (m_stream) {
         connect(m_stream, &Demuxer::sessionChanged, this, [this](const QSize &size, bool clientResized) {
             qInfo() << "Video session changed to" << size << "client resized:" << clientResized;
+            if (m_controller) {
+                m_controller->resetInput(size);
+            }
             if (m_decoder) {
                 m_decoder->onVideoSessionChanged(size);
             }
@@ -373,7 +377,7 @@ void Device::initSignals()
 
 bool Device::connectDevice()
 {
-    if (!m_server || m_serverStartSuccess) {
+    if (!m_server || m_serverStartSuccess || m_serverStarting) {
         return false;
     }
 
@@ -387,6 +391,8 @@ bool Device::connectDevice()
         qCritical("flex_display requires display video, control, new_display, and no crop");
         return false;
     }
+
+    m_serverStarting = true;
 
     // fix: macos cant recv finished signel, timer is ok
     QTimer::singleShot(0, this, [this]() {
@@ -439,6 +445,18 @@ void Device::disconnectDevice()
 {
     if (!m_server) {
         return;
+    }
+    m_serverStarting = false;
+    releaseInput();
+    if (auto *socket = m_server->getControlSocket()) {
+        QElapsedTimer deadline;
+        deadline.start();
+        socket->flush();
+        while (socket->bytesToWrite() > 0 && deadline.elapsed() < 250) {
+            if (!socket->waitForBytesWritten(250 - static_cast<int>(deadline.elapsed()))) {
+                break;
+            }
+        }
     }
     m_server->stop();
     m_server = Q_NULLPTR;
@@ -791,6 +809,16 @@ void Device::installApkRequest(const QString &apkFile)
 
     for (const auto& item : m_deviceObservers) {
         item->installApkRequest(apkFile);
+    }
+}
+
+void Device::releaseInput(const QSize &frameSize)
+{
+    if (m_controller) {
+        m_controller->resetInput(frameSize);
+    }
+    for (const auto &item : m_deviceObservers) {
+        item->releaseInput(frameSize);
     }
 }
 
