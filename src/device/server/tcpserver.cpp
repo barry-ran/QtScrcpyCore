@@ -5,6 +5,11 @@ TcpServer::TcpServer(QObject *parent) : QTcpServer(parent) {}
 
 TcpServer::~TcpServer() {}
 
+void TcpServer::resetIncomingConnectionOrder()
+{
+    m_isVideoSocket = true;
+}
+
 void TcpServer::incomingConnection(qintptr handle)
 {
     if (m_isVideoSocket) {
@@ -17,6 +22,7 @@ void TcpServer::incomingConnection(qintptr handle)
     } else {
         QTcpSocket *socket = new QTcpSocket();
         socket->setSocketDescriptor(handle);
+        socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
         addPendingConnection(socket);
     }
 }

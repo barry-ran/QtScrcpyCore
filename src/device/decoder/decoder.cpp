@@ -34,6 +34,12 @@ bool Decoder::open()
         qCritical("Could not allocate decoder context");
         return false;
     }
+    // Frame threading adds one frame of latency per thread. Keep parallel
+    // decoding within each frame, which improves throughput without queuing
+    // future frames, and tell H.264 decoders this is a low-delay stream.
+    m_codecCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    m_codecCtx->thread_type = FF_THREAD_SLICE;
+    m_codecCtx->thread_count = 0; // let FFmpeg choose the slice worker count
     if (avcodec_open2(m_codecCtx, codec, NULL) < 0) {
         qCritical("Could not open H.264 codec");
         return false;
@@ -77,48 +83,47 @@ bool Decoder::push(const AVPacket *packet)
     if (!m_codecCtx || !m_vb) {
         return false;
     }
-    AVFrame *decodingFrame = m_vb->decodingFrame();
 #ifdef QTSCRCPY_LAVF_HAS_NEW_ENCODING_DECODING_API
-    int ret = -1;
-    if ((ret = avcodec_send_packet(m_codecCtx, packet)) < 0) {
+    const auto drainFrames = [this]() {
+        int decodedFrames = 0;
+        for (;;) {
+            // The render buffer swaps its decode and display frames after
+            // every output, so fetch the current decode frame each iteration.
+            AVFrame *decodingFrame = m_vb->decodingFrame();
+            const int result = avcodec_receive_frame(m_codecCtx, decodingFrame);
+            if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) {
+                return decodedFrames;
+            }
+            if (result < 0) {
+                qCritical("Could not receive video frame: %d", result);
+                return -1;
+            }
+            pushFrame();
+            ++decodedFrames;
+        }
+    };
+
+    int ret = avcodec_send_packet(m_codecCtx, packet);
+    if (ret == AVERROR(EAGAIN)) {
+        // The decoder still has output ready. Drain it before retrying this
+        // packet instead of allowing decoded frames to queue behind input.
+        if (drainFrames() < 0) {
+            return false;
+        }
+        ret = avcodec_send_packet(m_codecCtx, packet);
+    }
+    if (ret < 0) {
         char errorbuf[255] = { 0 };
         av_strerror(ret, errorbuf, 254);
         qCritical("Could not send video packet: %s", errorbuf);
         return false;
     }
-    if (decodingFrame) {
-        ret = avcodec_receive_frame(m_codecCtx, decodingFrame);
-    }
-    if (!ret) {
-        // a frame was received
-        pushFrame();
-
-        //emit getOneFrame(yuvDecoderFrame->data[0], yuvDecoderFrame->data[1], yuvDecoderFrame->data[2],
-        //        yuvDecoderFrame->linesize[0], yuvDecoderFrame->linesize[1], yuvDecoderFrame->linesize[2]);
-
-        /*
-        // m_conver转换yuv为rgb是使用cpu转的，占用cpu太高，改用opengl渲染yuv
-        // QImage的copy也非常占用内存，此方案不考虑
-        if (!m_conver.isInit()) {
-            qDebug() << "decoder frame format" << decodingFrame->format;
-            m_conver.setSrcFrameInfo(codecCtx->width, codecCtx->height, AV_PIX_FMT_YUV420P);
-            m_conver.setDstFrameInfo(codecCtx->width, codecCtx->height, AV_PIX_FMT_RGB32);
-            m_conver.init();
-        }
-        if (!outBuffer) {
-            outBuffer=new quint8[avpicture_get_size(AV_PIX_FMT_RGB32, codecCtx->width, codecCtx->height)];
-            avpicture_fill((AVPicture *)rgbDecoderFrame, outBuffer, AV_PIX_FMT_RGB32, codecCtx->width, codecCtx->height);
-        }
-        m_conver.convert(decodingFrame, rgbDecoderFrame);
-        //QImage tmpImg((uchar *)outBuffer, codecCtx->width, codecCtx->height, QImage::Format_RGB32);
-        //QImage image = tmpImg.copy();
-        //emit getOneImage(image);
-        */
-    } else if (ret != AVERROR(EAGAIN)) {
-        qCritical("Could not receive video frame: %d", ret);
+    if (drainFrames() < 0) {
         return false;
     }
+
 #else
+    AVFrame *decodingFrame = m_vb->decodingFrame();
     int gotPicture = 0;
     int len = -1;
     if (decodingFrame) {

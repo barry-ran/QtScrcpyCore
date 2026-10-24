@@ -1,6 +1,5 @@
 #include <QDebug>
 #include <QCursor>
-#include <QGuiApplication>
 #include <QTimer>
 #include <QTime>
 #include <QRandomGenerator>
@@ -24,7 +23,6 @@ InputConvertGame::~InputConvertGame()
     resetInput();
     if (m_gameMap && m_keyMap.isValidMouseMoveMap()) {
         emit grabCursor(false);
-        hideMouseCursor(false);
     }
 }
 
@@ -471,7 +469,6 @@ void InputConvertGame::processKeyClick(const QPointF &clickPos, bool clickTwice,
 {
     if (switchMap && QEvent::KeyRelease == from->type()) {
         m_needBackMouseMove = !m_needBackMouseMove;
-        hideMouseCursor(!m_needBackMouseMove);
     }
 
     if (QEvent::KeyPress == from->type()) {
@@ -807,27 +804,12 @@ bool InputConvertGame::switchGameMap()
     // grab cursor and set cursor only mouse move map
     emit grabCursor(m_gameMap);
 #endif
-    hideMouseCursor(m_gameMap);
-
     if (!m_gameMap) {
         stopMouseMoveTimer();
         mouseMoveStopTouch();
     }
 
     return m_gameMap;
-}
-
-void InputConvertGame::hideMouseCursor(bool hide)
-{
-    if (hide) {
-#ifdef QT_NO_DEBUG
-        QGuiApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
-#else
-        QGuiApplication::setOverrideCursor(QCursor(Qt::CrossCursor));
-#endif
-    } else {
-        QGuiApplication::restoreOverrideCursor();
-    }
 }
 
 void InputConvertGame::timerEvent(QTimerEvent *event)

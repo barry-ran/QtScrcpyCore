@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include <QDebug>
-#include <QElapsedTimer>
 #include <QFileInfo>
+#include <QHostAddress>
 #include <QThread>
 #include <QTimer>
 #include <QTimerEvent>
@@ -14,7 +14,7 @@
 #define MAX_CONNECT_COUNT 30
 #define MAX_RESTART_COUNT 1
 
-static quint32 bufferRead32be(quint8 *buf)
+static quint32 bufferRead32be(const quint8 *buf)
 {
     return static_cast<quint32>((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
 }
@@ -26,27 +26,37 @@ Server::Server(QObject *parent) : QObject(parent)
 
     connect(&m_serverSocket, &QTcpServer::newConnection, this, [this]() {
         QTcpSocket *tmp = m_serverSocket.nextPendingConnection();
+        if (!tmp) {
+            return;
+        }
         if (dynamic_cast<VideoSocket *>(tmp)) {
-            m_videoSocket = dynamic_cast<VideoSocket *>(tmp);
-            if (!m_videoSocket->isValid() || !readInfo(m_videoSocket, m_deviceName, m_deviceSize)) {
-                stop();
-                emit serverStarted(false);
+            auto *videoSocket = static_cast<VideoSocket *>(tmp);
+            if (m_videoSocket) {
+                videoSocket->deleteLater();
+                return;
             }
+            m_videoSocket = videoSocket;
+            connect(videoSocket, &QTcpSocket::readyRead, this, [this]() {
+                processReverseVideoInfo();
+            });
+            connect(videoSocket, &QTcpSocket::disconnected, this, [this]() {
+                if (!m_connectionEstablished && m_serverStartStep == SSS_RUNNING) {
+                    retryServerAfterConnectionFailure();
+                }
+            });
+            processReverseVideoInfo();
         } else {
-            m_controlSocket = tmp;
-            if (m_controlSocket && m_controlSocket->isValid()) {
-                // we don't need the server socket anymore
-                // just m_videoSocket is ok
-                m_serverSocket.close();
-                // we don't need the adb tunnel anymore
-                disableTunnelReverse();
-                m_tunnelEnabled = false;
-                emit serverStarted(true, m_deviceName, m_deviceSize);
-            } else {
-                stop();
-                emit serverStarted(false);
+            if (m_controlSocket) {
+                tmp->deleteLater();
+                return;
             }
-            stopAcceptTimeoutTimer();
+            m_controlSocket = tmp;
+            connect(m_controlSocket, &QTcpSocket::disconnected, this, [this]() {
+                if (!m_connectionEstablished && m_serverStartStep == SSS_RUNNING) {
+                    retryServerAfterConnectionFailure();
+                }
+            });
+            completeReverseConnection();
         }
     });
 }
@@ -260,6 +270,32 @@ bool Server::execute()
 bool Server::start(Server::ServerParams params)
 {
     m_params = params;
+    stopAcceptTimeoutTimer();
+    stopConnectTimeoutTimer();
+    stopConnectAttemptTimeoutTimer();
+    m_connectAttemptInProgress = false;
+    m_forwardVideoDummyRead = false;
+    m_forwardControlDummyRead = false;
+    m_connectionEstablished = false;
+    m_videoInfoReady = false;
+    m_deviceName.clear();
+    m_deviceSize = QSize();
+    m_serverSocket.close();
+    m_serverSocket.resetIncomingConnectionOrder();
+    if (m_params.useReverse) {
+        m_serverSocket.setMaxPendingConnections(2);
+        if (!m_serverSocket.listen(QHostAddress::LocalHost, m_params.localPort)) {
+            const quint16 requestedPort = m_params.localPort;
+            if (!m_serverSocket.listen(QHostAddress::LocalHost, 0)) {
+                qCritical() << "Could not open a local reverse-tunnel listener:" << m_serverSocket.errorString();
+                m_serverStartStep = SSS_NULL;
+                emit serverStarted(false);
+                return false;
+            }
+            m_params.localPort = m_serverSocket.serverPort();
+            qWarning() << "Reverse-tunnel port" << requestedPort << "was busy; using" << m_params.localPort;
+        }
+    }
     m_serverStartStep = SSS_PUSH;
     return startServerByStep();
 }
@@ -294,9 +330,13 @@ void Server::timerEvent(QTimerEvent *event)
 {
     if (event && m_acceptTimeoutTimer == event->timerId()) {
         stopAcceptTimeoutTimer();
-        emit serverStarted(false);
+        qWarning("timed out waiting for the server's reverse tunnel connections");
+        retryServerAfterConnectionFailure();
     } else if (event && m_connectTimeoutTimer == event->timerId()) {
         onConnectTimer();
+    } else if (event && m_connectAttemptTimeoutTimer == event->timerId()) {
+        stopConnectAttemptTimeoutTimer();
+        failForwardConnectAttempt();
     }
 }
 
@@ -314,17 +354,24 @@ QTcpSocket *Server::getControlSocket()
 
 void Server::stop()
 {
-    if (m_tunnelForward) {
-        stopConnectTimeoutTimer();
-    } else {
-        stopAcceptTimeoutTimer();
-    }
+    stopAcceptTimeoutTimer();
+    stopConnectTimeoutTimer();
+    stopConnectAttemptTimeoutTimer();
+    m_connectAttemptInProgress = false;
+    m_connectionEstablished = false;
 
     if (m_controlSocket) {
-        m_controlSocket->close();
+        m_controlSocket->abort();
         m_controlSocket->deleteLater();
+        m_controlSocket = nullptr;
+    }
+    if (m_videoSocket) {
+        m_videoSocket->abort();
+        m_videoSocket->deleteLater();
+        m_videoSocket = nullptr;
     }
     // ignore failure
+    m_serverStartStep = SSS_NULL;
     m_serverProcess.kill();
     if (m_tunnelEnabled) {
         if (m_tunnelForward) {
@@ -368,39 +415,41 @@ bool Server::startServerByStep()
     return stepSuccess;
 }
 
-bool Server::readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size)
+Server::DeviceInfoReadResult Server::readInfo(VideoSocket *videoSocket,
+                                               QString &deviceName,
+                                               QSize &size)
 {
-    QElapsedTimer timer;
-    timer.start();
-    unsigned char buf[DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH];
-    while (videoSocket->bytesAvailable() < (DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH)) {
-        videoSocket->waitForReadyRead(300);
-        if (timer.elapsed() > 3000) {
-            qInfo("readInfo timeout");
-            return false;
-        }
+    if (!videoSocket || !videoSocket->isValid()) {
+        return DeviceInfoReadResult::Invalid;
     }
-    qDebug() << "readInfo wait time:" << timer.elapsed();
+    constexpr qint64 headerSize = DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH;
+    if (videoSocket->bytesAvailable() < headerSize) {
+        return DeviceInfoReadResult::Incomplete;
+    }
 
-    qint64 len = videoSocket->read((char *)buf, sizeof(buf));
-    if (len < DEVICE_NAME_FIELD_LENGTH + VIDEO_META_LENGTH) {
-        qInfo("Could not retrieve device information");
-        return false;
+    const QByteArray header = videoSocket->read(headerSize);
+    if (header.size() != headerSize) {
+        return DeviceInfoReadResult::Incomplete;
     }
-    buf[DEVICE_NAME_FIELD_LENGTH - 1] = '\0'; // in case the client sends garbage
-    deviceName = QString::fromUtf8((const char *)buf);
+    QByteArray deviceNameBytes = header.left(DEVICE_NAME_FIELD_LENGTH);
+    deviceNameBytes[DEVICE_NAME_FIELD_LENGTH - 1] = '\0'; // guard against a missing terminator
+    deviceName = QString::fromUtf8(deviceNameBytes.constData());
 
     // scrcpy 4.x: codec id (4 bytes), then session metadata (flags, width, height).
-    size.setWidth(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 8]));
-    size.setHeight(bufferRead32be(&buf[DEVICE_NAME_FIELD_LENGTH + 12]));
+    const auto *metadata = reinterpret_cast<const quint8 *>(header.constData() + DEVICE_NAME_FIELD_LENGTH);
+    size.setWidth(static_cast<int>(bufferRead32be(metadata + 8)));
+    size.setHeight(static_cast<int>(bufferRead32be(metadata + 12)));
 
-    return true;
+    if (size.width() <= 0 || size.height() <= 0) {
+        return DeviceInfoReadResult::Invalid;
+    }
+    return DeviceInfoReadResult::Complete;
 }
 
 void Server::startAcceptTimeoutTimer()
 {
     stopAcceptTimeoutTimer();
-    m_acceptTimeoutTimer = startTimer(1000);
+    m_acceptTimeoutTimer = startTimer(10000);
 }
 
 void Server::stopAcceptTimeoutTimer()
@@ -426,86 +475,209 @@ void Server::stopConnectTimeoutTimer()
     m_connectCount = 0;
 }
 
+void Server::stopConnectAttemptTimeoutTimer()
+{
+    if (m_connectAttemptTimeoutTimer) {
+        killTimer(m_connectAttemptTimeoutTimer);
+        m_connectAttemptTimeoutTimer = 0;
+    }
+}
+
 void Server::onConnectTimer()
 {
-    // device server need time to start
-    // 这里连接太早时间不够导致安卓监听socket还没有建立，readInfo会失败，所以采取定时重试策略
-    // 每隔100ms尝试一次，最多尝试MAX_CONNECT_COUNT次
-    QString deviceName;
-    QSize deviceSize;
-    bool success = false;
-
-    VideoSocket *videoSocket = new VideoSocket();
-    QTcpSocket *controlSocket = new QTcpSocket();
-
-    videoSocket->connectToHost(QHostAddress::LocalHost, m_params.localPort);
-    if (!videoSocket->waitForConnected(1000)) {
-        // 连接到adb很快的，这里失败不重试
-        m_connectCount = MAX_CONNECT_COUNT;
-        qWarning("video socket connect to server failed");
-        goto result;
-    }
-
-    controlSocket->connectToHost(QHostAddress::LocalHost, m_params.localPort);
-    if (!controlSocket->waitForConnected(1000)) {
-        // 连接到adb很快的，这里失败不重试
-        m_connectCount = MAX_CONNECT_COUNT;
-        qWarning("control socket connect to server failed");
-        goto result;
-    }
-
-    if (QTcpSocket::ConnectedState == videoSocket->state()) {
-        // connect will success even if devices offline, recv data is real connect success
-        // because connect is to pc adb server
-        videoSocket->waitForReadyRead(1000);
-        // devices will send 1 byte first on tunnel forward mode
-        QByteArray data = videoSocket->read(1);
-        if (!data.isEmpty() && readInfo(videoSocket, deviceName, deviceSize)) {
-            success = true;
-            goto result;
-        } else {
-            qWarning("video socket connect to server read device info failed, try again");
-            goto result;
-        }
-    } else {
-        qWarning("connect to server failed");
-        m_connectCount = MAX_CONNECT_COUNT;
-        goto result;
-    }
-
-result:
-    if (success) {
-        stopConnectTimeoutTimer();
-        m_videoSocket = videoSocket;
-        // devices will send 1 byte first on tunnel forward mode
-        controlSocket->read(1);
-        m_controlSocket = controlSocket;
-        // we don't need the adb tunnel anymore
-        disableTunnelForward();
-        m_tunnelEnabled = false;
-        m_restartCount = 0;
-        emit serverStarted(success, deviceName, deviceSize);
+    if (m_connectAttemptInProgress || m_connectionEstablished) {
         return;
     }
 
-    if (videoSocket) {
-        videoSocket->deleteLater();
-    }
-    if (controlSocket) {
-        controlSocket->deleteLater();
+    m_connectAttemptInProgress = true;
+    m_forwardVideoDummyRead = false;
+    m_forwardControlDummyRead = false;
+    m_videoInfoReady = false;
+    m_videoSocket = new VideoSocket(this);
+    m_controlSocket = new QTcpSocket(this);
+
+    connect(m_videoSocket, &QTcpSocket::readyRead, this, [this]() {
+        processForwardVideoInfo();
+    });
+    connect(m_controlSocket, &QTcpSocket::readyRead, this, [this]() {
+        processForwardControlData();
+    });
+    QPointer<QTcpSocket> controlSocket = m_controlSocket;
+    connect(controlSocket, &QTcpSocket::connected, this, [controlSocket]() {
+        if (controlSocket) {
+            controlSocket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+        }
+    });
+    const auto failed = [this](QAbstractSocket::SocketError) {
+        failForwardConnectAttempt();
+    };
+    connect(m_videoSocket, &QAbstractSocket::errorOccurred, this, failed);
+    connect(m_controlSocket, &QAbstractSocket::errorOccurred, this, failed);
+    connect(m_videoSocket, &QTcpSocket::disconnected, this, [this]() {
+        failForwardConnectAttempt();
+    });
+    connect(m_controlSocket, &QTcpSocket::disconnected, this, [this]() {
+        failForwardConnectAttempt();
+    });
+
+    m_connectAttemptTimeoutTimer = startTimer(3000);
+    m_videoSocket->connectToHost(QHostAddress::LocalHost, m_params.localPort);
+    m_controlSocket->connectToHost(QHostAddress::LocalHost, m_params.localPort);
+}
+
+void Server::processReverseVideoInfo()
+{
+    if (m_connectionEstablished || !m_videoSocket) {
+        return;
     }
 
-    if (MAX_CONNECT_COUNT <= m_connectCount++) {
-        stopConnectTimeoutTimer();
-        stop();
-        if (MAX_RESTART_COUNT > m_restartCount++) {
-            qWarning("restart server auto");
-            start(m_params);
-        } else {
-            m_restartCount = 0;
-            emit serverStarted(false);
-        }
+    QString deviceName;
+    QSize deviceSize;
+    const DeviceInfoReadResult result = readInfo(m_videoSocket, deviceName, deviceSize);
+    if (result == DeviceInfoReadResult::Incomplete) {
+        return;
     }
+    if (result == DeviceInfoReadResult::Invalid) {
+        qWarning("could not read the device video header from the reverse tunnel");
+        retryServerAfterConnectionFailure();
+        return;
+    }
+
+    m_deviceName = deviceName;
+    m_deviceSize = deviceSize;
+    m_videoInfoReady = true;
+    completeReverseConnection();
+}
+
+void Server::processForwardVideoInfo()
+{
+    if (!m_connectAttemptInProgress || !m_videoSocket) {
+        return;
+    }
+
+    if (!m_forwardVideoDummyRead) {
+        if (m_videoSocket->bytesAvailable() < 1) {
+            return;
+        }
+        m_videoSocket->read(1);
+        m_forwardVideoDummyRead = true;
+    }
+
+    if (!m_videoInfoReady) {
+        QString deviceName;
+        QSize deviceSize;
+        const DeviceInfoReadResult result = readInfo(m_videoSocket, deviceName, deviceSize);
+        if (result == DeviceInfoReadResult::Incomplete) {
+            return;
+        }
+        if (result == DeviceInfoReadResult::Invalid) {
+            failForwardConnectAttempt();
+            return;
+        }
+        m_deviceName = deviceName;
+        m_deviceSize = deviceSize;
+        m_videoInfoReady = true;
+    }
+
+    completeForwardConnection();
+}
+
+void Server::processForwardControlData()
+{
+    if (!m_connectAttemptInProgress || !m_controlSocket || m_forwardControlDummyRead) {
+        return;
+    }
+    if (m_controlSocket->bytesAvailable() < 1) {
+        return;
+    }
+
+    m_controlSocket->read(1);
+    m_forwardControlDummyRead = true;
+    completeForwardConnection();
+}
+
+void Server::completeReverseConnection()
+{
+    if (m_connectionEstablished || !m_videoSocket || !m_controlSocket || !m_videoInfoReady) {
+        return;
+    }
+
+    m_connectionEstablished = true;
+    stopAcceptTimeoutTimer();
+    QObject::disconnect(m_videoSocket.data(), nullptr, this, nullptr);
+    QObject::disconnect(m_controlSocket.data(), nullptr, this, nullptr);
+    m_serverSocket.close();
+    disableTunnelReverse();
+    m_tunnelEnabled = false;
+    m_restartCount = 0;
+    emit serverStarted(true, m_deviceName, m_deviceSize);
+}
+
+void Server::completeForwardConnection()
+{
+    if (!m_connectAttemptInProgress || !m_videoInfoReady || !m_forwardControlDummyRead) {
+        return;
+    }
+
+    m_connectAttemptInProgress = false;
+    m_connectionEstablished = true;
+    stopConnectAttemptTimeoutTimer();
+    stopConnectTimeoutTimer();
+    QObject::disconnect(m_videoSocket.data(), nullptr, this, nullptr);
+    QObject::disconnect(m_controlSocket.data(), nullptr, this, nullptr);
+    disableTunnelForward();
+    m_tunnelEnabled = false;
+    m_restartCount = 0;
+    emit serverStarted(true, m_deviceName, m_deviceSize);
+}
+
+void Server::failForwardConnectAttempt()
+{
+    if (!m_connectAttemptInProgress) {
+        return;
+    }
+
+    m_connectAttemptInProgress = false;
+    stopConnectAttemptTimeoutTimer();
+    if (m_videoSocket) {
+        QObject::disconnect(m_videoSocket.data(), nullptr, this, nullptr);
+        m_videoSocket->abort();
+        m_videoSocket->deleteLater();
+        m_videoSocket = nullptr;
+    }
+    if (m_controlSocket) {
+        QObject::disconnect(m_controlSocket.data(), nullptr, this, nullptr);
+        m_controlSocket->abort();
+        m_controlSocket->deleteLater();
+        m_controlSocket = nullptr;
+    }
+    m_forwardVideoDummyRead = false;
+    m_forwardControlDummyRead = false;
+    m_videoInfoReady = false;
+
+    if (++m_connectCount >= MAX_CONNECT_COUNT) {
+        qWarning("timed out connecting to the server through the forward tunnel");
+        retryServerAfterConnectionFailure();
+    }
+}
+
+void Server::retryServerAfterConnectionFailure()
+{
+    if (m_serverStartStep == SSS_NULL) {
+        return;
+    }
+
+    const ServerParams params = m_params;
+    stop();
+    if (m_restartCount < MAX_RESTART_COUNT) {
+        ++m_restartCount;
+        qWarning("server connection failed; restarting the server once");
+        start(params);
+        return;
+    }
+
+    m_restartCount = 0;
+    emit serverStarted(false);
 }
 
 void Server::onWorkProcessResult(qsc::AdbProcess::ADB_EXEC_RESULT processResult)
@@ -536,7 +708,8 @@ void Server::onWorkProcessResult(qsc::AdbProcess::ADB_EXEC_RESULT processResult)
                     // client can listen before starting the server app, so there is no need to
                     // try to connect until the server socket is listening on the device.
                     m_serverSocket.setMaxPendingConnections(2);
-                    if (!m_serverSocket.listen(QHostAddress::LocalHost, m_params.localPort)) {
+                    if (!m_serverSocket.isListening()
+                            && !m_serverSocket.listen(QHostAddress::LocalHost, m_params.localPort)) {
                         qCritical() << QString("Could not listen on port %1").arg(m_params.localPort).toStdString().c_str();
                         m_serverStartStep = SSS_NULL;
                         disableTunnelReverse();
@@ -550,6 +723,8 @@ void Server::onWorkProcessResult(qsc::AdbProcess::ADB_EXEC_RESULT processResult)
                     // 有一些设备reverse会报错more than o'ne device，adb的bug
                     // https://github.com/Genymobile/scrcpy/issues/5
                     qCritical("adb reverse failed");
+                    m_serverSocket.close();
+                    m_serverSocket.resetIncomingConnectionOrder();
                     m_tunnelForward = true;
                     m_serverStartStep = SSS_ENABLE_TUNNEL_FORWARD;
                     startServerByStep();
@@ -588,8 +763,13 @@ void Server::onWorkProcessResult(qsc::AdbProcess::ADB_EXEC_RESULT processResult)
                 emit serverStarted(false);
             }
         } else if (SSS_RUNNING == m_serverStartStep) {
-            m_serverStartStep = SSS_NULL;
-            emit serverStoped();
+            if (!m_connectionEstablished) {
+                qWarning("scrcpy server exited before the device connection was established");
+                retryServerAfterConnectionFailure();
+            } else {
+                m_serverStartStep = SSS_NULL;
+                emit serverStoped();
+            }
         }
     }
 }

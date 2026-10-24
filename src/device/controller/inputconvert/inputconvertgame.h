@@ -66,7 +66,6 @@ protected:
 
     bool switchGameMap();
     bool checkCursorPos(const QMouseEvent *from);
-    void hideMouseCursor(bool hide);
 
     void getDelayQueue(const QPointF& start, const QPointF& end,
                        const double& distanceStep, const double& posStepconst,

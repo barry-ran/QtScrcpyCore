@@ -87,6 +87,13 @@ protected:
     void timerEvent(QTimerEvent *event);
 
 private:
+    enum class DeviceInfoReadResult
+    {
+        Incomplete,
+        Complete,
+        Invalid
+    };
+
     bool pushServer();
     bool enableTunnelReverse();
     bool disableTunnelReverse();
@@ -95,12 +102,20 @@ private:
     bool execute();
     bool connectTo();
     bool startServerByStep();
-    bool readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size);
+    DeviceInfoReadResult readInfo(VideoSocket *videoSocket, QString &deviceName, QSize &size);
     void startAcceptTimeoutTimer();
     void stopAcceptTimeoutTimer();
     void startConnectTimeoutTimer();
     void stopConnectTimeoutTimer();
     void onConnectTimer();
+    void processReverseVideoInfo();
+    void processForwardVideoInfo();
+    void processForwardControlData();
+    void completeReverseConnection();
+    void completeForwardConnection();
+    void failForwardConnectAttempt();
+    void retryServerAfterConnectionFailure();
+    void stopConnectAttemptTimeoutTimer();
 
 private:
     qsc::AdbProcess m_workProcess;
@@ -112,8 +127,14 @@ private:
     bool m_tunnelForward = false; // use "adb forward" instead of "adb reverse"
     int m_acceptTimeoutTimer = 0;
     int m_connectTimeoutTimer = 0;
+    int m_connectAttemptTimeoutTimer = 0;
     quint32 m_connectCount = 0;
     quint32 m_restartCount = 0;
+    bool m_connectAttemptInProgress = false;
+    bool m_forwardVideoDummyRead = false;
+    bool m_forwardControlDummyRead = false;
+    bool m_videoInfoReady = false;
+    bool m_connectionEstablished = false;
     QString m_deviceName = "";
     QSize m_deviceSize = QSize();
     ServerParams m_params;

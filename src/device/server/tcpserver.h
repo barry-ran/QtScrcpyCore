@@ -9,6 +9,7 @@ class TcpServer : public QTcpServer
 public:
     explicit TcpServer(QObject *parent = nullptr);
     virtual ~TcpServer();
+    void resetIncomingConnectionOrder();
 
 protected:
     virtual void incomingConnection(qintptr handle);
