@@ -115,6 +115,7 @@ public:
     virtual void postGoMenu() = 0;
     virtual void postAppSwitch() = 0;
     virtual void postPower() = 0;
+    virtual void tapUnlockPosition(const QPointF &position, const QSize &frameSize) = 0;
     virtual void postVolumeUp() = 0;
     virtual void postVolumeDown() = 0;
     virtual void postCopy() = 0;

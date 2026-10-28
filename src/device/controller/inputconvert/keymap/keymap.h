@@ -76,6 +76,7 @@ public:
             {
                 KeyNode keyNode;
                 bool switchMap = false;
+                AndroidKeycode closeAndroidKey = AKEYCODE_UNKNOWN;
             } click;
             struct
             {
@@ -89,6 +90,8 @@ public:
             {
                 QPointF centerPos = { 0.0, 0.0 };
                 KeyNode left, right, up, down;
+                int sprintKey=0;
+                double sprintOffset=0;
             } steerWheel;
             struct
             {
@@ -123,6 +126,9 @@ public:
     const KeyMap::KeyMapNode &getKeyMapNodeMouse(int key);
     bool isSwitchOnKeyboard();
     int getSwitchKey();
+    int cursorKey() const { return m_cursorKey; }
+    int wheelUpKey() const { return m_wheelUpKey; }
+    int wheelDownKey() const { return m_wheelDownKey; }
 
     bool isValidMouseMoveMap();
     bool isValidSteerWheelMap();
@@ -161,6 +167,7 @@ private:
     static QString s_keyMapPath;
 
     QVector<KeyMapNode> m_keyMapNodes;
+    int m_cursorKey=0, m_wheelUpKey=0, m_wheelDownKey=0;
     KeyNode m_switchKey = { AT_KEY, Qt::Key_QuoteLeft };
 
     // just for return
