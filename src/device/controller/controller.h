@@ -32,6 +32,7 @@ public:
     void postGoMenu();
     void postAppSwitch();
     void postPower();
+    void tapUnlockPosition(const QPointF &position, const QSize &frameSize);
     void postVolumeUp();
     void postVolumeDown();
     void copy();

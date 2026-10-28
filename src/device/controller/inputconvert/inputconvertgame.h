@@ -33,6 +33,7 @@ protected:
     QPointF calcScreenAbsolutePos(QPointF relativePos);
 
     // multi touch id
+    void releaseAllTouches();
     int attachTouchID(int key);
     void detachTouchID(int key);
     int getTouchID(int key);
@@ -82,6 +83,10 @@ private:
     QSize m_showSize;
     bool m_gameMap = false;
     bool m_needBackMouseMove = false;
+    int m_openPanelKey = 0;
+    int m_wheelDelta = 0;
+    QPointF m_touchPositions[MULTI_TOUCH_MAX_NUM];
+    bool m_touchActive[MULTI_TOUCH_MAX_NUM] = {};
     int m_multiTouchID[MULTI_TOUCH_MAX_NUM] = { 0 };
     KeyMap m_keyMap;
 
@@ -92,6 +97,7 @@ private:
     {
         // the first key pressed
         int touchKey = Qt::Key_unknown;
+        bool sprintPressed = false;
         bool pressedUp = false;
         bool pressedDown = false;
         bool pressedLeft = false;

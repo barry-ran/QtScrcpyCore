@@ -526,6 +526,13 @@ void Device::postAppSwitch()
     }
 }
 
+void Device::tapUnlockPosition(const QPointF &position, const QSize &frameSize)
+{
+    if (m_controller && !isCameraMode()) {
+        m_controller->tapUnlockPosition(position, frameSize);
+    }
+}
+
 void Device::postPower()
 {
     if (isCameraMode()) {

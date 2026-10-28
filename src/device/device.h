@@ -1,4 +1,4 @@
-﻿#ifndef DEVICE_H
+#ifndef DEVICE_H
 #define DEVICE_H
 
 #include <set>
@@ -49,6 +49,7 @@ public:
     void postGoMenu() override;
     void postAppSwitch() override;
     void postPower() override;
+    void tapUnlockPosition(const QPointF &position, const QSize &frameSize) override;
     void postVolumeUp() override;
     void postVolumeDown() override;
     void postCopy() override;

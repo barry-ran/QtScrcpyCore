@@ -44,6 +44,10 @@ void KeyMap::loadKeyMap(const QString &json)
     m_switchKey.type = switchKey.first;
     m_switchKey.key = switchKey.second;
 
+    m_cursorKey = checkItemString(rootObj,"cursorKey") ? getItemKey(rootObj,"cursorKey").second : 0;
+    m_wheelUpKey = checkItemString(rootObj,"wheelUpKey") ? getItemKey(rootObj,"wheelUpKey").second : 0;
+    m_wheelDownKey = checkItemString(rootObj,"wheelDownKey") ? getItemKey(rootObj,"wheelDownKey").second : 0;
+
     // mouseMoveMap
     if (checkItemObject(rootObj, "mouseMoveMap")) {
         QJsonObject mouseMoveMap = getItemObject(rootObj, "mouseMoveMap");
@@ -166,6 +170,7 @@ void KeyMap::loadKeyMap(const QString &json)
                 keyMapNode.data.click.keyNode.key = key.second;
                 keyMapNode.data.click.keyNode.pos = getItemPos(node, "pos");
                 keyMapNode.data.click.switchMap = getItemBool(node, "switchMap");
+                keyMapNode.data.click.closeAndroidKey = static_cast<AndroidKeycode>(getItemDouble(node, "closeAndroidKey"));
                 keyMapNode.data.click.keyNode.androidKey = static_cast<AndroidKeycode>(getItemDouble(node, "androidKey"));
                 m_keyMapNodes.push_back(keyMapNode);
             } break;
@@ -187,6 +192,7 @@ void KeyMap::loadKeyMap(const QString &json)
                 keyMapNode.data.click.keyNode.key = key.second;
                 keyMapNode.data.click.keyNode.pos = getItemPos(node, "pos");
                 keyMapNode.data.click.switchMap = getItemBool(node, "switchMap");
+                keyMapNode.data.click.closeAndroidKey = static_cast<AndroidKeycode>(getItemDouble(node, "closeAndroidKey"));
                 keyMapNode.data.click.keyNode.androidKey = static_cast<AndroidKeycode>(getItemDouble(node, "androidKey"));
                 m_keyMapNodes.push_back(keyMapNode);
             } break;
@@ -260,6 +266,8 @@ void KeyMap::loadKeyMap(const QString &json)
                 keyMapNode.data.steerWheel.down = { downKey.first, downKey.second, QPointF(0, 0), QPointF(0, 0), getItemDouble(node, "downOffset") };
 
                 keyMapNode.data.steerWheel.centerPos = getItemPos(node, "centerPos");
+                keyMapNode.data.steerWheel.sprintKey = checkItemString(node,"sprintKey") ? getItemKey(node,"sprintKey").second : 0;
+                keyMapNode.data.steerWheel.sprintOffset = checkItemDouble(node,"sprintOffset") ? getItemDouble(node,"sprintOffset") : getItemDouble(node,"upOffset");
                 m_idxSteerWheel = m_keyMapNodes.size();
                 m_keyMapNodes.push_back(keyMapNode);
             } break;
@@ -391,6 +399,7 @@ void KeyMap::makeReverseMap()
         case KMT_STEER_WHEEL: {
             QMultiHash<int, KeyMapNode *> &ml = node.data.steerWheel.left.type == AT_KEY ? m_rmapKey : m_rmapMouse;
             ml.insert(node.data.steerWheel.left.key, &node);
+            if(node.data.steerWheel.sprintKey)m_rmapKey.insert(node.data.steerWheel.sprintKey,&node);
             QMultiHash<int, KeyMapNode *> &mr = node.data.steerWheel.right.type == AT_KEY ? m_rmapKey : m_rmapMouse;
             mr.insert(node.data.steerWheel.right.key, &node);
             QMultiHash<int, KeyMapNode *> &mu = node.data.steerWheel.up.type == AT_KEY ? m_rmapKey : m_rmapMouse;
@@ -489,7 +498,7 @@ bool KeyMap::checkItemPos(const QJsonObject &node, const QString &name)
 
 bool KeyMap::checkForClick(const QJsonObject &node)
 {
-    return checkForClickTwice(node) && checkItemBool(node, "switchMap");
+    return checkForClickTwice(node) && (!node.contains("switchMap") || checkItemBool(node, "switchMap"));
 }
 
 bool KeyMap::checkForClickMulti(const QJsonObject &node)

@@ -118,6 +118,24 @@ void Controller::postAppSwitch()
     postKeyCodeClick(AKEYCODE_APP_SWITCH);
 }
 
+void Controller::tapUnlockPosition(const QPointF &position, const QSize &frameSize)
+{
+    if (m_cameraMode || frameSize.isEmpty() || !QRectF(0, 0, 1, 1).contains(position)) {
+        return;
+    }
+    // Dedicated control path: never run unlock input through game mappings or group control.
+    const QPoint point(qBound(0, qRound(position.x() * frameSize.width()), frameSize.width() - 1),
+                       qBound(0, qRound(position.y() * frameSize.height()), frameSize.height() - 1));
+    for (int i = 0; i < 2; ++i) {
+        auto *msg = new ControlMsg(ControlMsg::CMT_INJECT_TOUCH);
+        msg->setInjectTouchMsgData(static_cast<quint64>(-2),
+            i == 0 ? AMOTION_EVENT_ACTION_DOWN : AMOTION_EVENT_ACTION_UP,
+            static_cast<AndroidMotioneventButtons>(0), static_cast<AndroidMotioneventButtons>(0),
+            QRect(point, frameSize), i == 0 ? 1.0f : 0.0f);
+        postControlMsg(msg);
+    }
+}
+
 void Controller::postPower()
 {
     postKeyCodeClick(AKEYCODE_POWER);
